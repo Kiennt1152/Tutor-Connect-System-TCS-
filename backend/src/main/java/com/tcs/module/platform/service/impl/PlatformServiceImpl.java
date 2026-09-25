@@ -194,6 +194,22 @@ public class PlatformServiceImpl implements PlatformService {
 
     private static final String DEFAULT_ANONYMOUS_NAME = "Người dùng ẩn danh";
 
+    /**
+     * [UC-07] Tra cứu danh sách người dùng phân trang kết hợp nhiều tiêu chí lọc và tìm kiếm.
+     * 
+     * Luồng xử lý:
+     * 1. Chuẩn hóa số trang (safePage >= 0) và kích thước trang (1 <= safeSize <= MAX_PAGE_SIZE).
+     * 2. Truy vấn danh sách người dùng theo trạng thái, vai trò và từ khóa tìm kiếm (email, tên, sđt).
+     * 3. Tải trước thông tin hồ sơ rút gọn (ProfileMaps) để tránh truy vấn N+1.
+     * 4. Ánh xạ sang danh sách UserListItemResponse và đóng gói thành PageUserListResponse.
+     * 
+     * @param page Trang hiện tại (0-indexed)
+     * @param size Số bản ghi mỗi trang
+     * @param status Trạng thái tài khoản cần lọc
+     * @param role Vai trò người dùng cần lọc
+     * @param keyword Từ khóa tìm kiếm
+     * @return DTO phân trang người dùng {@link PageUserListResponse}
+     */
     @Override
     @Transactional(readOnly = true)
     public PageUserListResponse getUsers(
@@ -220,6 +236,20 @@ public class PlatformServiceImpl implements PlatformService {
                 .build();
     }
 
+    /**
+     * [UC-07] Khởi tạo tài khoản người dùng trực tiếp bởi Quản trị viên sàn.
+     * 
+     * Luồng xử lý:
+     * 1. Xác thực tính duy nhất của email và số điện thoại trên hệ thống.
+     * 2. Kiểm tra độ dài mật khẩu (>= 6 ký tự) và mã hóa an toàn bằng BCrypt.
+     * 3. Tạo thực thể User với vai trò tương ứng và lưu vào CSDL.
+     * 4. Khởi tạo bản ghi hồ sơ tương ứng (Client, Tutor, TutorCenter, PlatformAdmin).
+     * 5. Ghi nhật ký kiểm toán hệ thống (Audit Log) CREATE_USER.
+     * 
+     * @param request Thông tin tạo tài khoản {@link CreateUserAdminRequest}
+     * @return DTO người dùng vừa được tạo {@link UserListItemResponse}
+     * @throws IllegalArgumentException nếu email/sđt bị trùng hoặc thông tin không hợp lệ
+     */
     @Override
     @Transactional
     public UserListItemResponse createUser(CreateUserAdminRequest request) {
@@ -295,6 +325,20 @@ public class PlatformServiceImpl implements PlatformService {
         return platformMapper.toUserListItem(savedUser, profiles);
     }
 
+    /**
+     * [UC-07] Cập nhật trạng thái tài khoản người dùng (ACTIVE, SUSPENDED, BANNED) và thu hồi phiên đăng nhập.
+     * 
+     * Luồng xử lý:
+     * 1. Tìm người dùng theo ID, không cho phép khóa tài khoản ROOT Quản trị viên.
+     * 2. Nếu chuyển sang trạng thái SUSPENDED hoặc BANNED, tăng tokenVersion để vô hiệu hóa toàn bộ JWT đang hoạt động.
+     * 3. Lưu trạng thái mới và lý do khóa tài khoản vào CSDL.
+     * 4. Ghi nhật ký kiểm toán UPDATE_USER_STATUS kèm lý do giải trình.
+     * 
+     * @param userId ID người dùng cần cập nhật
+     * @param request Trạng thái mới và lý do giải trình {@link UpdateUserStatusRequest}
+     * @return DTO người dùng sau cập nhật {@link UserListItemResponse}
+     * @throws BusinessException nếu thao tác trên tài khoản Root Admin
+     */
     @Override
     @Transactional
     public UserListItemResponse updateUserStatus(Long userId, UpdateUserStatusRequest request) {
@@ -322,6 +366,19 @@ public class PlatformServiceImpl implements PlatformService {
         return platformMapper.toUserListItem(saved, profiles);
     }
 
+    /**
+     * [UC-07] Chỉnh sửa thông tin định danh và hồ sơ người dùng bởi Quản trị viên.
+     * 
+     * Luồng xử lý:
+     * 1. Tìm người dùng theo ID.
+     * 2. Kiểm tra và cập nhật các trường thông tin: displayName, phone, avatarUrl, status.
+     * 3. Đảm bảo số điện thoại mới không bị trùng lặp với người dùng khác.
+     * 4. Lưu thay đổi và ghi nhận lịch sử thay đổi vào Audit Log.
+     * 
+     * @param userId ID người dùng cần chỉnh sửa
+     * @param request Dữ liệu cập nhật {@link com.tcs.module.platform.dto.request.UpdateUserAdminRequest}
+     * @return DTO người dùng sau khi chỉnh sửa {@link UserListItemResponse}
+     */
     @Override
     @Transactional
     public UserListItemResponse updateUser(Long userId, com.tcs.module.platform.dto.request.UpdateUserAdminRequest request) {
@@ -393,6 +450,20 @@ public class PlatformServiceImpl implements PlatformService {
     // =========================================================================
     // LUỒNG 8: BẢNG ĐIỀU KHIỂN QUẢN TRỊ & GIÁM SÁT CHỈ SỐ SỨC KHỎE DASHBOARD (UC-56)
     // =========================================================================
+    /**
+     * [UC-56] Tổng hợp dữ liệu bảng điều khiển Quản trị viên (Dashboard KPI, Doanh thu, Escrow, Cảnh báo).
+     * 
+     * Luồng xử lý:
+     * 1. Xác định khoảng thời gian báo cáo (mặc định 30 ngày gần nhất) và độ chi tiết (DAY, WEEK, MONTH).
+     * 2. Tổng hợp tổng số người dùng đa vai trò và số lượng tài khoản mới đăng ký.
+     * 3. Tính toán tổng số dư tiền ký quỹ Escrow đang giữ (HOLD) và tổng số tiền giao dịch đã giải ngân (RELEASED).
+     * 4. Tính toán doanh thu phí sàn thu được và các chỉ số cảnh báo vi phạm SLA / Tranh chấp chờ xử lý.
+     * 
+     * @param from Ngày bắt đầu chu kỳ báo cáo
+     * @param to Ngày kết thúc chu kỳ báo cáo
+     * @param granularity Độ chi tiết nhóm thời gian
+     * @return DTO tổng hợp chỉ số quản trị {@link DashboardResponse}
+     */
     @Override
     @Transactional(readOnly = true)
     public DashboardResponse getDashboard(LocalDate from, LocalDate to, String granularity) {
@@ -508,6 +579,15 @@ public class PlatformServiceImpl implements PlatformService {
                 .build();
     }
 
+    /**
+     * [UC-11] Lấy danh sách các yêu cầu xác minh KYC danh tính và bằng cấp, sắp xếp mới nhất trước.
+     * 
+     * Luồng xử lý:
+     * 1. Truy vấn toàn bộ yêu cầu xác minh trong bảng verification_requests theo thứ tự nộp giảm dần.
+     * 2. Ánh xạ sang danh sách DTO VerificationRequestResponse.
+     * 
+     * @return Danh sách yêu cầu KYC {@link VerificationRequestResponse}
+     */
     @Override
     @Transactional(readOnly = true)
     public List<VerificationRequestResponse> listVerificationRequests() {
@@ -516,6 +596,18 @@ public class PlatformServiceImpl implements PlatformService {
                 .toList();
     }
 
+    /**
+     * [UC-11] Xem chi tiết hồ sơ xác minh KYC kèm tài liệu minh chứng CCCD/Bằng cấp và lịch sử duyệt.
+     * 
+     * Luồng xử lý:
+     * 1. Tìm kiếm hồ sơ xác minh theo verificationId.
+     * 2. Tải toàn bộ tài liệu đính kèm (VerificationDocument) và lịch sử thao tác (VerificationHistory).
+     * 3. Đóng gói đầy đủ dữ liệu ảnh mặt trước/sau CCCD và chứng chỉ vào VerificationDetailResponse.
+     * 
+     * @param verificationId ID yêu cầu xác minh KYC
+     * @return DTO chi tiết hồ sơ xác minh {@link VerificationDetailResponse}
+     * @throws ResourceNotFoundException nếu không tìm thấy hồ sơ xác minh
+     */
     @Override
     @Transactional
     public VerificationDetailResponse getVerificationDetail(Long verificationId) {
@@ -537,6 +629,20 @@ public class PlatformServiceImpl implements PlatformService {
         return buildDetail(verification);
     }
 
+    /**
+     * [UC-11] Phê duyệt hoặc từ chối hồ sơ xác minh KYC và đồng bộ trạng thái hồ sơ người dùng.
+     * 
+     * Luồng xử lý:
+     * 1. Kiểm tra trạng thái hiện tại của yêu cầu xác minh (chỉ duyệt khi đang PENDING).
+     * 2. Cập nhật trạng thái yêu cầu sang APPROVED hoặc REJECTED kèm ghi chú lý do của Quản trị viên.
+     * 3. Đồng bộ trạng thái huy hiệu xác minh (ProfileVerificationStatus) trên bảng hồ sơ Tutor / Client / Center.
+     * 4. Ghi nhận nhật ký thẩm định vào VerificationHistory và gửi thông báo In-App tới người dùng.
+     * 
+     * @param verificationId ID yêu cầu xác minh
+     * @param request Quyết định phê duyệt/từ chối {@link ReviewVerificationRequest}
+     * @return DTO yêu cầu xác minh sau khi xử lý {@link VerificationRequestResponse}
+     * @throws BusinessException nếu yêu cầu xác minh đã được xử lý trước đó
+     */
     @Override
     @Transactional
     public VerificationRequestResponse reviewVerification(Long verificationId, ReviewVerificationRequest request) {
@@ -804,6 +910,15 @@ public class PlatformServiceImpl implements PlatformService {
         return StringUtils.hasText(value) ? value : "—";
     }
 
+    /**
+     * [UC-49] Lấy danh sách toàn bộ các báo cáo vi phạm trên sàn, sắp xếp mới nhất trước.
+     * 
+     * Luồng xử lý:
+     * 1. Truy vấn tất cả bản ghi Report trong CSDL sắp xếp giảm dần theo createdAt.
+     * 2. Ánh xạ sang danh sách ReportResponse phục vụ giao diện quản trị Admin.
+     * 
+     * @return Danh sách báo cáo vi phạm {@link ReportResponse}
+     */
     @Override
     @Transactional(readOnly = true)
     public List<ReportResponse> listReports() {
@@ -813,6 +928,16 @@ public class PlatformServiceImpl implements PlatformService {
                 .toList();
     }
 
+    /**
+     * [UC-49] Lấy danh sách các báo cáo vi phạm liên quan đến lớp học do Trung tâm gia sư quản lý.
+     * 
+     * Luồng xử lý:
+     * 1. Xác thực người dùng hiện tại có vai trò TUTOR_CENTER.
+     * 2. Lấy danh sách tất cả lớp học thuộc quyền quản lý của Trung tâm.
+     * 3. Truy vấn các báo cáo vi phạm có targetType là CLASS và targetId thuộc các lớp của Trung tâm.
+     * 
+     * @return Danh sách báo cáo vi phạm lớp học của Trung tâm {@link ReportResponse}
+     */
     @Override
     @Transactional(readOnly = true)
     public List<ReportResponse> listCenterReports() {
@@ -824,6 +949,19 @@ public class PlatformServiceImpl implements PlatformService {
                 .toList();
     }
 
+    /**
+     * [UC-49, UC-52] Quản trị viên can thiệp xử lý sự cố lớp học với 7 phương án nghiệp vụ hoặc chuyển tiếp tranh chấp.
+     * 
+     * Luồng xử lý:
+     * 1. Kiểm tra quyền Quản trị viên (PLATFORM_ADMIN) và tải thông tin báo cáo.
+     * 2. Xác thực lớp học mục tiêu và trạng thái Escrow hiện tại của hợp đồng.
+     * 3. Thực thi hành động tương ứng: Đổi gia sư, hoàn tiền Escrow, đóng lớp, hoặc tạo tranh chấp Dispute.
+     * 4. Cập nhật trạng thái báo cáo sang RESOLVED và gửi thông báo tới các bên liên quan.
+     * 
+     * @param reportId ID báo cáo sự cố lớp học
+     * @param request Phương án xử lý {@link ResolveClassIssueRequest}
+     * @return DTO báo cáo sau khi xử lý {@link ReportResponse}
+     */
     @Override
     @Transactional
     public ReportResponse resolveClassIssue(Long reportId, ResolveClassIssueRequest request) {
@@ -848,6 +986,19 @@ public class PlatformServiceImpl implements PlatformService {
         return resolveClassIssueReport(report, request);
     }
 
+    /**
+     * [UC-49] Trung tâm gia sư xử lý sự cố lớp học nội bộ thuộc quyền quản lý của mình.
+     * 
+     * Luồng xử lý:
+     * 1. Xác thực quyền TUTOR_CENTER và kiểm tra lớp học báo cáo phải thuộc về Trung tâm này.
+     * 2. Thực hiện phương án giải quyết: Hỗ trợ đổi gia sư nội bộ, xếp lại lịch học hoặc tư vấn giải tỏa.
+     * 3. Lưu biên bản giải quyết và chuyển trạng thái báo cáo sang RESOLVED.
+     * 
+     * @param reportId ID báo cáo sự cố lớp học
+     * @param request Phương án giải quyết {@link ResolveClassIssueRequest}
+     * @return DTO báo cáo sau xử lý {@link ReportResponse}
+     * @throws ForbiddenException nếu lớp học không thuộc quản lý của Trung tâm
+     */
     @Override
     @Transactional
     public ReportResponse resolveCenterClassIssue(Long reportId, ResolveClassIssueRequest request) {
@@ -903,6 +1054,17 @@ public class PlatformServiceImpl implements PlatformService {
         return toReportResponse(saved);
     }
 
+    /**
+     * [UC-53, UC-55] Tra cứu danh sách đánh giá trên toàn sàn kèm bộ lọc trạng thái kiểm duyệt.
+     * 
+     * Luồng xử lý:
+     * 1. Nếu status là null, lấy toàn bộ đánh giá sắp xếp mới nhất trước.
+     * 2. Nếu status được chỉ định, lọc theo trạng thái kiểm duyệt (APPROVED, HIDDEN, PENDING_AUDIT).
+     * 3. Ánh xạ sang danh sách DTO AdminReviewResponse kèm thông tin người đánh giá và người nhận đánh giá.
+     * 
+     * @param status Bộ lọc trạng thái kiểm duyệt {@link ReviewStatus}
+     * @return Danh sách đánh giá {@link AdminReviewResponse}
+     */
     @Override
     @Transactional(readOnly = true)
     public List<AdminReviewResponse> listReviews(ReviewStatus status) {
@@ -923,6 +1085,19 @@ public class PlatformServiceImpl implements PlatformService {
                 .toList();
     }
 
+    /**
+     * [UC-55] Kiểm duyệt đánh giá của người dùng (Phê duyệt công khai hoặc Ẩn khỏi hệ thống).
+     * 
+     * Luồng xử lý:
+     * 1. Tìm đánh giá theo reviewId trong CSDL.
+     * 2. Cập nhật trạng thái kiểm duyệt theo yêu cầu của Quản trị viên (APPROVED / HIDDEN).
+     * 3. Ghi vết kiểm duyệt vào Audit Log hệ thống MODERATE_REVIEW.
+     * 4. Tính toán lại điểm đánh giá trung bình (rating) của Gia sư/Trung tâm nếu đánh giá bị ẩn/hiện.
+     * 
+     * @param reviewId ID đánh giá cần kiểm duyệt
+     * @param request Quyết định kiểm duyệt {@link ModerateReviewRequest}
+     * @return DTO đánh giá sau kiểm duyệt {@link AdminReviewResponse}
+     */
     @Override
     @Transactional
     public AdminReviewResponse moderateReview(Long reviewId, ModerateReviewRequest request) {
@@ -938,6 +1113,17 @@ public class PlatformServiceImpl implements PlatformService {
         return toAdminReviewResponse(saved);
     }
 
+    /**
+     * [UC-55] Xóa vĩnh viễn một đánh giá vi phạm nghiêm trọng quy chuẩn cộng đồng.
+     * 
+     * Luồng xử lý:
+     * 1. Tìm kiếm đánh giá theo ID.
+     * 2. Xóa bản ghi đánh giá khỏi bảng reviews trong CSDL.
+     * 3. Ghi nhật ký kiểm toán DELETE_REVIEW phục vụ hậu kiểm.
+     * 
+     * @param reviewId ID đánh giá cần xóa
+     * @throws ResourceNotFoundException nếu không tìm thấy đánh giá
+     */
     @Override
     @Transactional
     public void deleteReview(Long reviewId) {
@@ -951,6 +1137,18 @@ public class PlatformServiceImpl implements PlatformService {
         contractService.recomputeReputationByTutorUser(tutorUserId);
     }
 
+    /**
+     * [UC-49, UC-55] Xử lý báo cáo vi phạm nhắm vào một đánh giá cụ thể (targetType = REVIEW).
+     * 
+     * Luồng xử lý:
+     * 1. Xác thực quyền PLATFORM_ADMIN và kiểm tra báo cáo có đúng loại REVIEW không.
+     * 2. Thực hiện hành động: HIDE_REVIEW (ẩn đánh giá), DELETE_REVIEW (xóa đánh giá), hoặc DISMISS (bác bỏ báo cáo).
+     * 3. Cập nhật trạng thái báo cáo sang RESOLVED hoặc DISMISSED kèm ghi chú giải trình.
+     * 
+     * @param reportId ID báo cáo vi phạm
+     * @param request Hành động xử lý {@link ResolveReviewReportRequest}
+     * @return DTO báo cáo sau xử lý {@link ReportResponse}
+     */
     @Override
     @Transactional
     public ReportResponse resolveReviewReport(Long reportId, ResolveReviewReportRequest request) {
@@ -1143,6 +1341,19 @@ public class PlatformServiceImpl implements PlatformService {
         return StringUtils.hasText(userPart) ? userPart : description.trim();
     }
 
+    /**
+     * [UC-49] Quản trị viên xử lý báo cáo vi phạm chung (Người dùng, Đánh giá, Nội dung xấu).
+     * 
+     * Luồng xử lý:
+     * 1. Tìm bản ghi báo cáo theo reportId.
+     * 2. Cập nhật trạng thái báo cáo (RESOLVED, DISMISSED) và ghi nhận lý do giải quyết của Admin.
+     * 3. Áp dụng hình phạt nếu có (cảnh cáo, khóa tài khoản tạm thời người bị báo cáo).
+     * 4. Gửi thông báo kết quả giải quyết tới người đã gửi báo cáo.
+     * 
+     * @param reportId ID báo cáo vi phạm
+     * @param request Quyết định giải quyết {@link com.tcs.module.platform.dto.request.ResolveReportRequest}
+     * @return DTO báo cáo sau khi xử lý {@link ReportResponse}
+     */
     @Override
     @Transactional
     public ReportResponse resolveReport(Long reportId, com.tcs.module.platform.dto.request.ResolveReportRequest request) {
@@ -1171,6 +1382,23 @@ public class PlatformServiceImpl implements PlatformService {
         return toReportResponse(saved);
     }
 
+    /**
+     * [UC-66] Lấy danh sách ticket hỗ trợ kỹ thuật phân trang kèm bộ lọc đa tiêu chí cho Quản trị viên.
+     * 
+     * Luồng xử lý:
+     * 1. Chuẩn hóa phân trang và sắp xếp mặc định theo độ ưu tiên giảm dần và ngày tạo mới nhất.
+     * 2. Truy vấn danh sách ticket thỏa mãn các điều kiện: trạng thái, danh mục, mức ưu tiên, từ khóa.
+     * 3. Tính toán các chỉ số vi phạm SLA để đánh dấu cảnh báo trên giao diện.
+     * 4. Ánh xạ sang PageSupportTicketResponse.
+     * 
+     * @param page Số trang hiện tại (0-indexed)
+     * @param size Số lượng bản ghi mỗi trang
+     * @param status Bộ lọc trạng thái ticket
+     * @param category Bộ lọc danh mục sự cố
+     * @param priority Bộ lọc mức độ ưu tiên
+     * @param keyword Từ khóa tìm kiếm (email, tiêu đề, mã ticket)
+     * @return DTO phân trang ticket hỗ trợ {@link PageSupportTicketResponse}
+     */
     @Override
     @Transactional(readOnly = true)
     public PageSupportTicketResponse getTickets(
@@ -1196,6 +1424,18 @@ public class PlatformServiceImpl implements PlatformService {
                 .build();
     }
 
+    /**
+     * [UC-66] Mở xem chi tiết ticket hỗ trợ: Tự động tiếp nhận gán admin và chuyển trạng thái OPEN -> IN_PROGRESS.
+     * 
+     * Luồng xử lý:
+     * 1. Tìm ticket theo ID trong CSDL.
+     * 2. Nếu ticket đang ở trạng thái OPEN và chưa có admin tiếp nhận, tự động gán admin hiện tại và chuyển sang IN_PROGRESS.
+     * 3. Tải toàn bộ chuỗi tin nhắn trao đổi (TicketMessage) sắp xếp theo thời gian tăng dần.
+     * 4. Đóng gói đầy đủ thông tin vào SupportTicketDetailResponse.
+     * 
+     * @param ticketId ID ticket hỗ trợ cần xem
+     * @return DTO chi tiết ticket {@link SupportTicketDetailResponse}
+     */
     @Override
     @Transactional
     public SupportTicketDetailResponse getTicketDetail(Long ticketId) {
@@ -1211,6 +1451,19 @@ public class PlatformServiceImpl implements PlatformService {
         return toTicketDetail(ticket);
     }
 
+    /**
+     * [UC-66] Quản trị viên điều chỉnh phân loại danh mục hoặc cập nhật độ ưu tiên của ticket hỗ trợ.
+     * 
+     * Luồng xử lý:
+     * 1. Tìm ticket theo ticketId.
+     * 2. Cập nhật category hoặc priority mới nếu có thay đổi.
+     * 3. Nếu độ ưu tiên thay đổi, tính toán lại thời hạn cam kết SLA (dueAt) tương ứng.
+     * 4. Lưu thay đổi và trả về chi tiết ticket sau cập nhật.
+     * 
+     * @param ticketId ID ticket cần chỉnh sửa
+     * @param request Dữ liệu cập nhật {@link UpdateTicketRequest}
+     * @return Chi tiết ticket sau khi chỉnh sửa {@link SupportTicketDetailResponse}
+     */
     @Override
     @Transactional
     public SupportTicketDetailResponse updateTicket(Long ticketId, UpdateTicketRequest request) {
@@ -1274,6 +1527,20 @@ public class PlatformServiceImpl implements PlatformService {
     // =========================================================================
 
     // Luồng 4 - Bước 2: Admin gửi phản hồi Ticket & Đo lường First Response SLA
+    /**
+     * [UC-66] Quản trị viên gửi phản hồi vào hội thoại ticket, chuyển trạng thái sang IN_REVIEW và gửi thông báo.
+     * 
+     * Luồng xử lý:
+     * 1. Kiểm tra nội dung phản hồi không được để trống.
+     * 2. Lưu tin nhắn mới vào bảng ticket_messages với cờ isFromAdmin = true.
+     * 3. Cập nhật trạng thái ticket sang IN_REVIEW (chờ người dùng phản hồi/xác nhận).
+     * 4. Ghi nhận thời gian phản hồi đầu tiên (responseSlaMs) nếu đây là phản hồi đầu của Admin.
+     * 5. Gửi thông báo thời gian thực tới người dùng đã tạo ticket.
+     * 
+     * @param ticketId ID ticket hỗ trợ
+     * @param request Nội dung và bằng chứng phản hồi {@link RespondTicketRequest}
+     * @return Chi tiết ticket sau khi phản hồi {@link SupportTicketDetailResponse}
+     */
     @Override
     @Transactional
     public SupportTicketDetailResponse respondToTicket(Long ticketId, RespondTicketRequest request) {
@@ -1318,6 +1585,19 @@ public class PlatformServiceImpl implements PlatformService {
     }
 
     // Luồng 4 - Bước 7: Admin Đóng / Giải quyết Ticket (RESOLVED hoặc CLOSED)
+    /**
+     * [UC-66] Đóng ticket hỗ trợ khi sự cố đã được giải quyết hoặc không còn hợp lệ.
+     * 
+     * Luồng xử lý:
+     * 1. Kiểm tra trạng thái đóng hợp lệ (RESOLVED hoặc CLOSED).
+     * 2. Cập nhật trạng thái ticket, ghi nhận thời điểm resolvedAt / closedAt.
+     * 3. Ghi nhận tin nhắn kết luận cuối cùng của Quản trị viên vào chuỗi hội thoại.
+     * 4. Phát thông báo xác nhận hoàn tất xử lý ticket tới người dùng.
+     * 
+     * @param ticketId ID ticket cần đóng
+     * @param request Quyết định đóng và ghi chú {@link CloseTicketRequest}
+     * @return Chi tiết ticket sau khi đóng {@link SupportTicketDetailResponse}
+     */
     @Override
     @Transactional
     public SupportTicketDetailResponse closeTicket(Long ticketId, CloseTicketRequest request) {
@@ -1355,6 +1635,19 @@ public class PlatformServiceImpl implements PlatformService {
     // =========================================================================
 
     // Luồng 5A: Gộp Ticket trùng lặp của cùng một người dùng
+    /**
+     * [UC-66] Gộp các ticket trùng lặp vào ticket chính và chuyển trạng thái ticket phụ sang MERGED.
+     * 
+     * Luồng xử lý:
+     * 1. Kiểm tra ticket nguồn và ticket đích tồn tại, không thể tự gộp vào chính nó.
+     * 2. Xác thực cả 2 ticket phải cùng một người dùng tạo.
+     * 3. Sao chép và chuyển toàn bộ tin nhắn từ ticket nguồn sang hội thoại của ticket đích.
+     * 4. Đóng ticket nguồn với trạng thái CLOSED và lưu liên kết tham chiếu tới ticket đích.
+     * 
+     * @param sourceTicketId ID ticket nguồn cần gộp
+     * @param request Thông tin ticket đích {@link com.tcs.module.platform.dto.request.MergeTicketRequest}
+     * @return Chi tiết ticket đích sau khi sáp nhập {@link SupportTicketDetailResponse}
+     */
     @Override
     @Transactional
     public SupportTicketDetailResponse mergeTicket(
@@ -1429,6 +1722,17 @@ public class PlatformServiceImpl implements PlatformService {
     // =========================================================================
 
     // Luồng 7 - Quét định kỳ mỗi 10 phút, tìm và nâng mức ưu tiên cho ticket quá hạn SLA
+    /**
+     * [UC-66] Tác vụ quét định kỳ, tự động nâng độ ưu tiên và phát cảnh báo cho ticket vi phạm hạn SLA.
+     * 
+     * Luồng xử lý:
+     * 1. Tìm tất cả các ticket đang ở trạng thái OPEN hoặc IN_PROGRESS có dueAt đã qua so với hiện tại.
+     * 2. Đánh dấu cờ slaBreached = true.
+     * 3. Tự động leo thang độ ưu tiên (LOW -> MEDIUM -> HIGH -> URGENT).
+     * 4. Phát thông báo cảnh báo mức khẩn cấp tới toàn bộ Quản trị viên trực ban.
+     * 
+     * @return Số lượng ticket đã được tự động leo thang hạn SLA
+     */
     @Override
     @Transactional
     public int scanAndEscalateSlaBreaches() {
@@ -1519,6 +1823,19 @@ public class PlatformServiceImpl implements PlatformService {
     }
 
     // Luồng 5B: Chuyển Ticket sang luồng Xử lý Tranh chấp & Báo cáo sự cố (BF-08)
+    /**
+     * [UC-66, UC-49] Chuyển tiếp ticket hỗ trợ sự cố lớp học sang phân hệ Tranh chấp tài chính Escrow.
+     * 
+     * Luồng xử lý:
+     * 1. Kiểm tra ticket có liên kết với lớp học (targetClass) và hợp đồng Escrow tương ứng không.
+     * 2. Khởi tạo bản ghi Dispute mới trong hệ thống tài chính với lý do chuyển tiếp từ ticket.
+     * 3. Khóa trạng thái giao dịch Escrow sang DISPUTED.
+     * 4. Cập nhật ticket sang trạng thái CLOSED kèm ghi chú chuyển tiếp sang mã tranh chấp mới.
+     * 
+     * @param ticketId ID ticket hỗ trợ cần chuyển tiếp
+     * @param request Thông tin tranh chấp {@link com.tcs.module.platform.dto.request.RedirectDisputeRequest}
+     * @return Chi tiết ticket sau khi chuyển tiếp tranh chấp {@link SupportTicketDetailResponse}
+     */
     @Override
     @Transactional
     public SupportTicketDetailResponse redirectTicketToDispute(
@@ -2251,6 +2568,15 @@ public class PlatformServiceImpl implements PlatformService {
     private static final String TEMPLATE_TYPE_RECRUITMENT = "RECRUITMENT";
     private static final String TEMPLATE_TYPE_CLASS = "CLASS";
 
+    /**
+     * [UC-45] Lấy danh sách toàn bộ các mẫu hợp đồng điện tử Master của sàn giao dịch.
+     * 
+     * Luồng xử lý:
+     * 1. Truy vấn toàn bộ bản ghi ContractTemplate từ bảng contract_templates.
+     * 2. Ánh xạ sang danh sách DTO ContractTemplateResponse.
+     * 
+     * @return Danh sách mẫu hợp đồng điện tử {@link ContractTemplateResponse}
+     */
     @Override
     @Transactional(readOnly = true)
     public List<ContractTemplateResponse> listContractTemplates() {
@@ -2260,6 +2586,17 @@ public class PlatformServiceImpl implements PlatformService {
                 .toList();
     }
 
+    /**
+     * [UC-45] Tạo mới một mẫu hợp đồng điện tử Master phục vụ sinh hợp đồng tự động giữa Phụ huynh và Gia sư.
+     * 
+     * Luồng xử lý:
+     * 1. Xác thực các trường dữ liệu bắt buộc (tên mẫu hợp đồng, nội dung mẫu, danh sách placeholder).
+     * 2. Khởi tạo thực thể ContractTemplate với trạng thái ACTIVE và phiên bản version = 1.
+     * 3. Lưu vào CSDL và ghi nhận nhật ký kiểm toán CREATE_CONTRACT_TEMPLATE.
+     * 
+     * @param request Dữ liệu tạo mẫu hợp đồng {@link SaveContractTemplateRequest}
+     * @return DTO mẫu hợp đồng vừa được tạo {@link ContractTemplateResponse}
+     */
     @Override
     @Transactional
     public ContractTemplateResponse createContractTemplate(SaveContractTemplateRequest request) {
@@ -2287,6 +2624,19 @@ public class PlatformServiceImpl implements PlatformService {
         return toTemplateResponse(saved);
     }
 
+    /**
+     * [UC-45] Cập nhật nội dung, điều khoản và cấu trúc biến của mẫu hợp đồng điện tử hiện có.
+     * 
+     * Luồng xử lý:
+     * 1. Tìm mẫu hợp đồng theo templateId trong CSDL.
+     * 2. Cập nhật các trường: name, templateContent, description, status.
+     * 3. Tự động tăng số hiệu phiên bản mẫu (version) và lưu cập nhật.
+     * 4. Ghi nhật ký kiểm toán UPDATE_CONTRACT_TEMPLATE.
+     * 
+     * @param templateId ID mẫu hợp đồng cần chỉnh sửa
+     * @param request Dữ liệu cập nhật {@link SaveContractTemplateRequest}
+     * @return DTO mẫu hợp đồng sau khi chỉnh sửa {@link ContractTemplateResponse}
+     */
     @Override
     @Transactional
     public ContractTemplateResponse updateContractTemplate(Long templateId, SaveContractTemplateRequest request) {
@@ -2307,6 +2657,16 @@ public class PlatformServiceImpl implements PlatformService {
         return toTemplateResponse(saved);
     }
 
+    /**
+     * [UC-45] Xóa bỏ một mẫu hợp đồng điện tử khỏi hệ thống nếu chưa được tham chiếu phát hành.
+     * 
+     * Luồng xử lý:
+     * 1. Tìm mẫu hợp đồng theo ID.
+     * 2. Kiểm tra tính toàn vẹn: Không cho phép xóa nếu đã có hợp đồng thực tế sử dụng mẫu này.
+     * 3. Xóa bản ghi ContractTemplate khỏi CSDL và ghi nhận Audit Log.
+     * 
+     * @param templateId ID mẫu hợp đồng cần xóa
+     */
     @Override
     @Transactional
     public void deleteContractTemplate(Long templateId) {
@@ -2359,6 +2719,18 @@ public class PlatformServiceImpl implements PlatformService {
     // =========================================================================
     // LUỒNG GIÁM SÁT LỊCH HỌC TOÀN HỆ THỐNG THEO NGÀY (UC-21, ROLE: ADMIN)
     // =========================================================================
+    /**
+     * [UC-21] Giám sát lịch học và tình hình điểm danh của tất cả các lớp học trên toàn sàn theo ngày.
+     * 
+     * Luồng xử lý:
+     * 1. Xác thực quyền Quản trị viên (PLATFORM_ADMIN).
+     * 2. Xác định ngày giám sát (mặc định hôm nay nếu date = null).
+     * 3. Truy vấn các buổi học có lịch diễn ra trong ngày từ LessonAttendanceRepository.
+     * 4. Tổng hợp trạng thái điểm danh (ATTENDED, ABSENT, PENDING) và đóng gói kết quả phản hồi.
+     * 
+     * @param date Ngày cần theo dõi lịch học
+     * @return Danh sách các buổi học và trạng thái điểm danh trong ngày
+     */
     @Override
     @Transactional(readOnly = true)
     public List<com.tcs.module.center.dto.response.CenterScheduleClassResponse> getPlatformSchedule(LocalDate date) {
@@ -2533,6 +2905,16 @@ public class PlatformServiceImpl implements PlatformService {
         return rate.multiply(new BigDecimal("100")).stripTrailingZeros().toPlainString() + "%";
     }
 
+    /**
+     * [UC-46] Lấy danh sách tỷ lệ phí sàn của toàn bộ các Trung tâm gia sư đối tác.
+     * 
+     * Luồng xử lý:
+     * 1. Lấy tỷ lệ phí mặc định của sàn từ SystemParameter (PLATFORM_FEE_RATE).
+     * 2. Truy vấn danh sách tất cả Trung tâm gia sư kèm cấu hình phí riêng nếu có.
+     * 3. Ánh xạ sang danh sách CenterFeeConfigResponse thể hiện rõ phí riêng hay phí mặc định.
+     * 
+     * @return Danh sách cấu hình phí sàn của các Trung tâm {@link CenterFeeConfigResponse}
+     */
     @Override
     @Transactional(readOnly = true)
     public List<CenterFeeConfigResponse> listCenterFeeConfigs() {
@@ -2544,6 +2926,19 @@ public class PlatformServiceImpl implements PlatformService {
                 .toList();
     }
 
+    /**
+     * [UC-46] Cập nhật hoặc thiết lập tỷ lệ phí dịch vụ sàn thỏa thuận riêng cho một Trung tâm gia sư.
+     * 
+     * Luồng xử lý:
+     * 1. Tìm kiếm Trung tâm gia sư theo centerId.
+     * 2. Kiểm tra tính hợp lệ của tỷ lệ phí mới (nằm trong khoảng 0.00 đến 1.00).
+     * 3. Lưu tỷ lệ phí tùy chỉnh vào trường customPlatformFeeRate của trung tâm.
+     * 4. Ghi nhận nhật ký kiểm toán UPDATE_CENTER_FEE_CONFIG.
+     * 
+     * @param centerId ID Trung tâm gia sư
+     * @param request Tỷ lệ phí dịch vụ mới {@link UpdateCenterFeeRequest}
+     * @return Cấu hình phí của trung tâm sau khi cập nhật {@link CenterFeeConfigResponse}
+     */
     @Override
     @Transactional
     public CenterFeeConfigResponse updateCenterFeeConfig(Long centerId, UpdateCenterFeeRequest request) {
@@ -2567,6 +2962,17 @@ public class PlatformServiceImpl implements PlatformService {
         return mapToCenterFeeConfigResponse(center, defaultRate);
     }
 
+    /**
+     * [UC-46] Xóa cấu hình phí thỏa thuận riêng của Trung tâm gia sư, khôi phục về tỷ lệ phí mặc định sàn.
+     * 
+     * Luồng xử lý:
+     * 1. Tìm Trung tâm gia sư theo centerId.
+     * 2. Đặt customPlatformFeeRate = null để hệ thống tự động kế thừa phí chuẩn của sàn.
+     * 3. Lưu thay đổi và ghi nhận nhật ký kiểm toán RESET_CENTER_FEE_CONFIG.
+     * 
+     * @param centerId ID Trung tâm gia sư
+     * @return Cấu hình phí sau khi đặt lại về mặc định {@link CenterFeeConfigResponse}
+     */
     @Override
     @Transactional
     public CenterFeeConfigResponse resetCenterFeeConfig(Long centerId) {

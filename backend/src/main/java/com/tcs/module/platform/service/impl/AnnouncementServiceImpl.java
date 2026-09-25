@@ -88,6 +88,16 @@ public class AnnouncementServiceImpl implements AnnouncementService {
         private LocalDateTime updatedAt;
     }
 
+    /**
+     * [UC-59] Lấy danh sách toàn bộ bản tin thông báo hệ thống đã cấu hình.
+     * 
+     * Luồng xử lý:
+     * 1. Đọc và giải mã chuỗi JSON từ tham số hệ thống SYSTEM_ANNOUNCEMENTS.
+     * 2. Sắp xếp danh sách thông báo theo thời gian tạo giảm dần (mới nhất lên trước).
+     * 3. Chuyển đổi sang danh sách DTO AnnouncementResponse trả về cho Quản trị viên.
+     * 
+     * @return Danh sách AnnouncementResponse đầy đủ
+     */
     @Override
     @Transactional(readOnly = true)
     public List<AnnouncementResponse> getAnnouncements() {
@@ -97,12 +107,32 @@ public class AnnouncementServiceImpl implements AnnouncementService {
                 .toList();
     }
 
+    /**
+     * [UC-59] Xem thông tin chi tiết một bản tin thông báo hệ thống theo mã định danh.
+     * 
+     * @param announcementId ID bản tin
+     * @return AnnouncementResponse chi tiết thông báo
+     * @throws ResourceNotFoundException nếu không tìm thấy thông báo
+     */
     @Override
     @Transactional(readOnly = true)
     public AnnouncementResponse getAnnouncement(Long announcementId) {
         return toResponse(getRequired(announcementId, loadItems()));
     }
 
+    /**
+     * [UC-59] Tạo mới bản tin thông báo hệ thống và lưu trữ vào tham số hệ thống động.
+     * 
+     * Luồng xử lý:
+     * 1. Tải danh sách thông báo hiện tại từ tham số SYSTEM_ANNOUNCEMENTS.
+     * 2. Sinh ID mới tiếp theo (max ID hiện tại + 1).
+     * 3. Chuẩn hóa và xác thực dữ liệu tiêu đề, nội dung, ngày hiệu lực.
+     * 4. Gắn thông tin Quản trị viên tạo bản tin và mốc thời gian tạo.
+     * 5. Lưu lại danh sách vào CSDL dưới dạng chuỗi JSON và ghi log kiểm toán.
+     * 
+     * @param request DTO dữ liệu tạo mới thông báo
+     * @return AnnouncementResponse thông tin bản tin vừa tạo
+     */
     @Override
     @Transactional
     public AnnouncementResponse createAnnouncement(UpsertAnnouncementRequest request) {
@@ -122,6 +152,19 @@ public class AnnouncementServiceImpl implements AnnouncementService {
         return toResponse(item);
     }
 
+    /**
+     * [UC-59] Cập nhật nội dung và cấu hình của một bản tin thông báo hệ thống.
+     * 
+     * Luồng xử lý:
+     * 1. Tìm bản ghi thông báo tương ứng trong danh sách theo ID, ném lỗi nếu không tồn tại.
+     * 2. Cập nhật các trường thông tin: tiêu đề, nội dung, vai trò đích, cờ kích hoạt, thời gian bắt đầu/kết thúc.
+     * 3. Cập nhật thời điểm sửa đổi updatedAt thành thời điểm hiện tại.
+     * 4. Lưu chuỗi JSON cập nhật vào bảng SystemParameter và ghi log kiểm toán UPDATE_ANNOUNCEMENT.
+     * 
+     * @param announcementId ID bản tin cần sửa
+     * @param request DTO dữ liệu cập nhật
+     * @return AnnouncementResponse thông tin bản tin sau cập nhật
+     */
     @Override
     @Transactional
     public AnnouncementResponse updateAnnouncement(Long announcementId, UpsertAnnouncementRequest request) {
@@ -134,6 +177,17 @@ public class AnnouncementServiceImpl implements AnnouncementService {
         return toResponse(item);
     }
 
+    /**
+     * [UC-59] Xóa bỏ một bản tin thông báo khỏi hệ thống.
+     * 
+     * Luồng xử lý:
+     * 1. Tìm bản ghi thông báo trong danh sách, ném ngoại lệ nếu không tìm thấy.
+     * 2. Xóa phần tử khỏi danh sách thông báo bộ nhớ.
+     * 3. Tuần tự hóa danh sách còn lại sang JSON và lưu vào SystemParameter.
+     * 4. Ghi nhận nhật ký kiểm toán DELETE_ANNOUNCEMENT.
+     * 
+     * @param announcementId ID bản tin cần xóa
+     */
     @Override
     @Transactional
     public void deleteAnnouncement(Long announcementId) {
@@ -144,6 +198,19 @@ public class AnnouncementServiceImpl implements AnnouncementService {
         auditLogService.record("DELETE_ANNOUNCEMENT", "Announcement", announcementId, null, null);
     }
 
+    /**
+     * [UC-59] Lấy danh sách các thông báo đang hoạt động và phù hợp với vai trò người dùng hiện tại.
+     * 
+     * Luồng xử lý:
+     * 1. Tải danh sách thông báo từ tham số hệ thống.
+     * 2. Lọc các thông báo có active = true.
+     * 3. Lọc theo khung thời gian hiệu lực (startsAt <= now <= endsAt).
+     * 4. Lọc theo vai trò đối tượng: chấp nhận nếu targetRole là null (cho mọi người) hoặc trùng với vai trò người gọi.
+     * 5. Sắp xếp theo ngày tạo mới nhất và trả về danh sách DTO AnnouncementResponse.
+     * 
+     * @param role Vai trò người dùng (null nếu là khách chưa đăng nhập)
+     * @return Danh sách AnnouncementResponse hợp lệ đang hiển thị
+     */
     @Override
     @Transactional(readOnly = true)
     public List<AnnouncementResponse> getVisibleAnnouncements(UserRole role) {

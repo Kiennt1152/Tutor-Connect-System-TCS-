@@ -75,6 +75,9 @@ function TicketDetailModal({ ticketId, onClose, onUpdated }: TicketModalProps) {
   const [isPenaltyModalOpen, setIsPenaltyModalOpen] = useState(false);
   const [penaltySuccessMessage, setPenaltySuccessMessage] = useState<string | null>(null);
 
+  /**
+   * [UC-66] Đặt lại form và làm mới dữ liệu sau khi thực hiện thao tác trên ticket thành công.
+   */
   const handleMutationSuccess = () => {
     setReplyText('');
     setCloseNote('');
@@ -91,15 +94,24 @@ function TicketDetailModal({ ticketId, onClose, onUpdated }: TicketModalProps) {
 
   const mutations = useTicketMutations(handleMutationSuccess);
 
+  /**
+   * [UC-66] Gửi phản hồi chính thức của Quản trị viên vào chuỗi hội thoại ticket và chuyển sang IN_REVIEW.
+   */
   const handleRespond = () => {
     if (!replyText.trim()) return;
     void mutations.respond(ticketId, { content: replyText.trim() });
   };
 
+  /**
+   * [UC-66] Đóng ticket hỗ trợ với trạng thái RESOLVED (Đã giải quyết) hoặc CLOSED (Đã đóng).
+   */
   const handleClose = (closeStatus: 'RESOLVED' | 'CLOSED') => {
     void mutations.closeTicket(ticketId, { status: closeStatus, adminNotes: closeNote.trim() || undefined });
   };
 
+  /**
+   * [UC-66] Hợp nhất ticket trùng lặp vào ticket chính và chuyển trạng thái ticket phụ sang MERGED.
+   */
   const handleMerge = () => {
     const targetIdNum = parseInt(targetTicketId.trim(), 10);
     if (isNaN(targetIdNum) || targetIdNum <= 0) return;
@@ -109,6 +121,9 @@ function TicketDetailModal({ ticketId, onClose, onUpdated }: TicketModalProps) {
     });
   };
 
+  /**
+   * [UC-66, UC-49] Chuyển tiếp ticket hỗ trợ sang phân hệ xử lý tranh chấp tài chính Escrow.
+   */
   const handleRedirectDispute = () => {
     const classIdNum = disputeClassId.trim() ? parseInt(disputeClassId.trim(), 10) : undefined;
     void mutations.redirectTicketToDispute(ticketId, {
@@ -117,6 +132,9 @@ function TicketDetailModal({ ticketId, onClose, onUpdated }: TicketModalProps) {
     });
   };
 
+  /**
+   * [UC-66] Cập nhật lại danh mục sự cố hoặc mức độ ưu tiên của ticket hỗ trợ.
+   */
   const handleUpdate = () => {
     if (!detail) return;
     const payload: { category?: AdminTicketCategory; priority?: AdminTicketPriority } = {};
@@ -684,15 +702,24 @@ export default function PlatformTicketsPage() {
   const openCount = data?.items.filter((t) => t.status === 'OPEN').length ?? 0;
   const inProgressCount = data?.items.filter((t) => t.status === 'IN_PROGRESS').length ?? 0;
 
+  /**
+   * [UC-66] Tìm kiếm ticket hỗ trợ theo từ khóa (email, tiêu đề, mã ticket).
+   */
   const handleKeywordSearch = (e: FormEvent) => {
     e.preventDefault();
     setFilters((f) => ({ ...f, page: 0, keyword: keywordDraft || undefined }));
   };
 
+  /**
+   * [UC-66] Mở chi tiết ticket bằng cách cập nhật query parameter 'id' trên URL.
+   */
   const openTicket = (ticketId: string) => {
     setSearchParams({ id: ticketId });
   };
 
+  /**
+   * [UC-66] Đóng modal chi tiết ticket bằng cách xóa query parameter khỏi URL.
+   */
   const closeTicket = () => {
     setSearchParams({});
   };

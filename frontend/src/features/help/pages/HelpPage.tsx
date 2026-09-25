@@ -144,18 +144,24 @@ export default function HelpPage() {
     setOpenFaqId(null);
   }, [keyword, category, items.length]);
 
-  // Xử lý khi người dùng submit form tìm kiếm từ khóa
+  /**
+   * [UC-65] Tiếp nhận submit form tìm kiếm từ khóa hỏi đáp FAQ trợ giúp.
+   */
   const handleSearch = (e: FormEvent) => {
     e.preventDefault();
     setKeyword(searchDraft); // Kích hoạt reload FAQ với keyword mới
   };
 
-  // Xử lý khi người dùng bấm chọn một thẻ danh mục
+  /**
+   * [UC-65] Lọc danh sách câu hỏi FAQ trợ giúp theo danh mục được chọn.
+   */
   const handleCategorySelect = (selectedCat: string) => {
     setCategory(selectedCat); // Kích hoạt reload FAQ với category mới
   };
 
-  // Xóa toàn bộ bộ lọc tìm kiếm (reset cả keyword và category)
+  /**
+   * [UC-65] Xóa toàn bộ bộ lọc tìm kiếm và đưa danh sách câu hỏi về trạng thái ban đầu.
+   */
   const handleClearFilters = () => {
     setSearchDraft('');
     setKeyword('');
@@ -169,6 +175,9 @@ export default function HelpPage() {
   const paginatedItems = items.slice(startIndex, endIndex);
   const visiblePages = getVisiblePages(currentPage, totalPages);
 
+  /**
+   * [UC-65] Chuyển trang phân trang câu hỏi FAQ cục bộ và cuộn màn hình mượt mà về đầu danh sách.
+   */
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages) {
       setCurrentPage(newPage);

@@ -86,6 +86,9 @@ export default function PlatformTasksPage() {
     setPage(0);
   };
 
+  /**
+   * [UC-64] Lấy số liệu thống kê tổng hợp bàn trực ban khẩn cấp (tác vụ tồn, trễ hạn SLA, tiền rủi ro).
+   */
   const fetchSummary = useCallback(async () => {
     try {
       const res = await platformApi.getTaskSummary();
@@ -95,6 +98,9 @@ export default function PlatformTasksPage() {
     }
   }, []);
 
+  /**
+   * [UC-64] Tải danh sách nhiệm vụ cần Quản trị viên xử lý phân trang theo phân hệ và mức ưu tiên.
+   */
   const fetchTasks = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -123,14 +129,23 @@ export default function PlatformTasksPage() {
     fetchTasks();
   }, [fetchTasks]);
 
+  /**
+   * [UC-64] Lọc tác vụ theo phân hệ nghiệp vụ (KYC, Báo cáo vi phạm, Hỗ trợ, Rút tiền, Tranh chấp).
+   */
   const handleTypeSelect = (type: string) => {
     updateFilters(type, selectedPriority, slaBreachedFilter);
   };
 
+  /**
+   * [UC-64] Lọc tác vụ theo thang mức độ ưu tiên nghiệp vụ (Khẩn cấp, Cao, Trung bình, Thấp).
+   */
   const handlePrioritySelect = (priority: string) => {
     updateFilters(selectedType, priority, slaBreachedFilter);
   };
 
+  /**
+   * [UC-64] Bật/tắt bộ lọc chỉ xem các tác vụ đã quá hạn cam kết dịch vụ (SLA Breached).
+   */
   const handleSlaToggle = () => {
     const next = slaBreachedFilter === true ? undefined : true;
     updateFilters(selectedType, selectedPriority, next);

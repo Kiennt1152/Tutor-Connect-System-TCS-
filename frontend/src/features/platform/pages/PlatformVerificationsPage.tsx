@@ -150,6 +150,9 @@ export default function PlatformVerificationsPage() {
     }
   };
 
+  /**
+   * [UC-11] Phê duyệt hồ sơ xác minh KYC danh tính / bằng cấp và gắn huy hiệu xác minh.
+   */
   const handleApprove = async () => {
     if (!selected) return;
     setFormError('');
@@ -161,6 +164,9 @@ export default function PlatformVerificationsPage() {
     reload();
   };
 
+  /**
+   * [UC-11] Từ chối hồ sơ xác minh KYC kèm lý do giải trình chi tiết cho người dùng.
+   */
   const handleReject = async () => {
     if (!selected) return;
     if (rejectNotes.trim().length < 10) {

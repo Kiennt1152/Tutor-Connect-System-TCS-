@@ -92,6 +92,9 @@ export default function PlatformPenaltiesPage() {
     bans: 0
   });
 
+  /**
+   * [UC-60] [UC-63] Tải danh sách các quyết định xử phạt kỷ luật theo bộ lọc đa chiều và phân trang.
+   */
   const fetchPenalties = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -126,6 +129,9 @@ export default function PlatformPenaltiesPage() {
     fetchPenalties();
   }, [fetchPenalties]);
 
+  /**
+   * [UC-60] Đặt lại các bộ lọc tìm kiếm án phạt về giá trị mặc định.
+   */
   const handleFilterReset = () => {
     setStatusFilter('');
     setTypeFilter('');
@@ -155,6 +161,9 @@ export default function PlatformPenaltiesPage() {
     setIsIssueModalOpen(true);
   };
 
+  /**
+   * [UC-63] Gửi yêu cầu ban hành án phạt mới đối với người dùng vi phạm quy chế sàn.
+   */
   const handleIssueSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (issueForm.userId <= 0) {
@@ -190,6 +199,9 @@ export default function PlatformPenaltiesPage() {
     setIsRevokeModalOpen(true);
   };
 
+  /**
+   * [UC-63] Gửi yêu cầu thu hồi án phạt trước thời hạn kèm văn bản giải trình.
+   */
   const handleRevokeSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!selectedPenalty) return;

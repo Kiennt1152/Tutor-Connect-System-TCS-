@@ -134,6 +134,9 @@ export default function AiAssistantPage() {
 
   useEffect(() => {
     initSessions();
+    /**
+     * [UC-65] Tự động co giãn sidebar lịch sử chat dựa trên kích thước màn hình thiết bị (Mobile vs Desktop).
+     */
     const handleResize = () => {
       if (window.innerWidth <= 768) {
         setSidebarCollapsed(true);
@@ -186,6 +189,9 @@ export default function AiAssistantPage() {
     }
   };
 
+  /**
+   * [UC-65] Chọn phiên hội thoại AI trong lịch sử và tải toàn bộ tin nhắn liên quan.
+   */
   const handleSelectSession = async (sessionId: number) => {
     setCurrentSessionId(sessionId);
     setLoading(true);
@@ -203,6 +209,9 @@ export default function AiAssistantPage() {
     }
   };
 
+  /**
+   * [UC-65] Khởi tạo cuộc trò chuyện mới với Trợ lý AI sàn Tutor Connect.
+   */
   const handleNewChat = () => {
     setCurrentSessionId(undefined);
     sessionStorage.removeItem('ai_current_session');
@@ -211,12 +220,18 @@ export default function AiAssistantPage() {
     if (window.innerWidth <= 768) setSidebarCollapsed(true);
   };
 
+  /**
+   * [UC-65] Mở modal xác nhận trước khi xóa phiên trò chuyện, ngăn chặn sự kiện click lan truyền.
+   */
   const handleDeleteClick = (e: React.MouseEvent, session: AiSession) => {
     e.stopPropagation();
     setDeleteError(null);
     setSessionToDelete(session);
   };
 
+  /**
+   * [UC-65] Xác nhận xóa vĩnh viễn một phiên hội thoại AI khỏi cơ sở dữ liệu.
+   */
   const handleConfirmDelete = async () => {
     if (!sessionToDelete) return;
     const targetSessionId = sessionToDelete.sessionId;
@@ -237,6 +252,9 @@ export default function AiAssistantPage() {
     }
   };
 
+  /**
+   * [UC-65] Gửi câu hỏi tới Trợ lý AI và nhận câu trả lời RAG phân tích kèm thẻ gợi ý thực thể.
+   */
   const handleSend = async (textToSend?: string) => {
     const text = (textToSend || input).trim();
     if (!text || sending) return;
@@ -285,6 +303,9 @@ export default function AiAssistantPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  /**
+   * [UC-65] Cho phép người dùng chỉnh sửa lại câu hỏi gần nhất trong lịch sử chat để gửi lại.
+   */
   const handleEditQuestion = (index: number) => {
     let userMsg = null;
     for (let i = index - 1; i >= 0; i--) {
@@ -303,12 +324,18 @@ export default function AiAssistantPage() {
     }
   };
 
+  /**
+   * [UC-65] Tự động điều chỉnh chiều cao textarea nhập liệu (Auto-expanding) theo độ dài nội dung.
+   */
   const handleTextareaInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
     e.target.style.height = 'auto';
     e.target.style.height = Math.min(e.target.scrollHeight, 150) + 'px';
   };
 
+  /**
+   * [UC-65] Bắt phím Enter để gửi nhanh tin nhắn và Shift+Enter để xuống dòng trong ô nhập liệu.
+   */
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -316,6 +343,9 @@ export default function AiAssistantPage() {
     }
   };
 
+  /**
+   * [UC-65] Sao chép nội dung câu trả lời của AI vào Clipboard và hiển thị hiệu ứng tooltip "Đã chép".
+   */
   const handleCopy = (text: string, id: number) => {
     navigator.clipboard.writeText(text);
     setCopiedMessageId(id);

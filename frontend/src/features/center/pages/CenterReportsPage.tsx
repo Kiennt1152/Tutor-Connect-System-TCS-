@@ -42,9 +42,7 @@ const REPORT_ACTION_OPTIONS: { value: ClassIssueResolutionAction; label: string 
   { value: 'REQUEST_MORE_INFORMATION', label: 'Yêu cầu bổ sung thông tin' },
   { value: 'CONTINUE_CLASS', label: 'Tiếp tục lớp' },
   { value: 'RESCHEDULE', label: 'Dời lịch/bù buổi' },
-  { value: 'REPLACE_TUTOR', label: 'Đổi gia sư' },
   { value: 'ESCALATE_TO_DISPUTE', label: 'Chuyển thành tranh chấp' },
-  { value: 'TERMINATE_CLASS', label: 'Chuyển xử lý chấm dứt lớp' },
   { value: 'CLOSE_NO_ACTION', label: 'Đóng báo cáo' },
 ];
 

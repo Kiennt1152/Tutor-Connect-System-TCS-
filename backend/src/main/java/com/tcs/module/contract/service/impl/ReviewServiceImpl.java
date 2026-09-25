@@ -42,6 +42,18 @@ public class ReviewServiceImpl implements ReviewService {
     private final UserRepository userRepository;
     private final AuthHelper authHelper;
 
+    /**
+     * [UC-44] Hiện thực nghiệp vụ tạo mới đánh giá uy tín sau khi hoàn tất phân công lớp.
+     * 
+     * Luồng xử lý:
+     * 1. Kiểm tra các trường bắt buộc (assignmentId, revieweeId, rating trong khoảng 1..5).
+     * 2. Tìm kiếm thực thể người đánh giá, người được đánh giá và phân công lớp tương ứng.
+     * 3. Kiểm tra tính hợp lệ qua validateReviewerCanReviewAssignment (không tự đánh giá, phải là bên tham gia lớp, chưa từng đánh giá).
+     * 4. Tạo thực thể Review, lưu vào CSDL qua reviewRepository và trả về ReviewResponse.
+     * 
+     * @param request DTO chứa thông tin đánh giá
+     * @return ReviewResponse thông tin đánh giá đã lưu
+     */
     @Override
     @Transactional
     public ReviewResponse createReview(CreateReviewRequest request) {
@@ -71,6 +83,12 @@ public class ReviewServiceImpl implements ReviewService {
         return toResponse(reviewRepository.save(review));
     }
 
+    /**
+     * [UC-44] Truy vấn danh sách đánh giá của gia sư theo ID người dùng.
+     * 
+     * @param tutorUserId ID người dùng của gia sư
+     * @return Danh sách ReviewResponse
+     */
     @Override
     @Transactional(readOnly = true)
     public List<ReviewResponse> getReviewsForTutor(Long tutorUserId) {

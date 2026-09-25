@@ -122,7 +122,9 @@ export default function PlatformAnalyticsPage() {
   const [ledgerPage, setLedgerPage] = useState<number>(0);
   const [ledgerPageSize] = useState<number>(15);
 
-  // Load Overview Data
+  /**
+   * [UC-56] Tải dữ liệu tổng quan thống kê nền tảng (Dashboard Analytics Summary) theo chu kỳ thời gian.
+   */
   const fetchSummary = useCallback(async () => {
     try {
       setSummaryLoading(true);
@@ -136,7 +138,9 @@ export default function PlatformAnalyticsPage() {
     }
   }, [appliedFrom, appliedTo]);
 
-  // Load Centers Data
+  /**
+   * [UC-56] Tải dữ liệu phân tích hiệu suất và đối soát tài chính của các Trung tâm gia sư.
+   */
   const fetchCenters = useCallback(async () => {
     try {
       setCentersLoading(true);
@@ -149,7 +153,9 @@ export default function PlatformAnalyticsPage() {
     }
   }, [appliedFrom, appliedTo]);
 
-  // Load Individuals Data
+  /**
+   * [UC-56] Tải báo cáo phân tích hiệu suất của các Gia sư cá nhân và Phụ huynh học sinh.
+   */
   const fetchIndividuals = useCallback(async () => {
     try {
       setIndividualsLoading(true);
@@ -166,7 +172,9 @@ export default function PlatformAnalyticsPage() {
     }
   }, [appliedFrom, appliedTo]);
 
-  // Load Ledger Data
+  /**
+   * [UC-56] Truy xuất sổ cái dòng tiền giao dịch nền tảng (Financial Ledger) phân trang và lọc theo vai trò.
+   */
   const fetchLedger = useCallback(async () => {
     try {
       setLedgerLoading(true);
@@ -200,12 +208,18 @@ export default function PlatformAnalyticsPage() {
     }
   }, [activeTab, fetchSummary, fetchCenters, fetchIndividuals, fetchLedger]);
 
+  /**
+   * [UC-56] Xử lý khi người dùng thay đổi bộ lọc khoảng thời gian phân tích (Hôm nay, 7 ngày, 30 ngày, Tùy chỉnh).
+   */
   const handleTimeFilterChange = (val: TimeFilterValue) => {
     setAppliedFrom(val.from);
     setAppliedTo(val.to);
     setLedgerPage(0);
   };
 
+  /**
+   * [UC-56] Xuất dữ liệu thống kê ra file định dạng CSV phục vụ công tác kế toán và lưu trữ định kỳ.
+   */
   const handleExport = async (type: string) => {
     setExportingType(type);
     try {

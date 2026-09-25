@@ -110,6 +110,9 @@ export default function PlatformContractTemplatesPage() {
   // Preview Modal State
   const [previewTemplate, setPreviewTemplate] = useState<ContractTemplateItem | null>(null);
 
+  /**
+   * [UC-45] Tải danh sách toàn bộ các mẫu hợp đồng điện tử Master từ hệ thống.
+   */
   const fetchTemplates = async () => {
     try {
       setLoading(true);
@@ -127,6 +130,9 @@ export default function PlatformContractTemplatesPage() {
     fetchTemplates();
   }, []);
 
+  /**
+   * [UC-45] Mở modal tạo mới mẫu hợp đồng với nội dung mẫu mặc định.
+   */
   const handleOpenCreate = () => {
     setEditingTemplate(null);
     setFormName('');
@@ -135,6 +141,9 @@ export default function PlatformContractTemplatesPage() {
     setIsEditOpen(true);
   };
 
+  /**
+   * [UC-45] Mở modal chỉnh sửa mẫu hợp đồng hiện có và điền trước dữ liệu.
+   */
   const handleOpenEdit = (item: ContractTemplateItem) => {
     setEditingTemplate(item);
     setFormName(item.name);
@@ -143,6 +152,9 @@ export default function PlatformContractTemplatesPage() {
     setIsEditOpen(true);
   };
 
+  /**
+   * [UC-45] Lưu biểu mẫu tạo mới hoặc cập nhật mẫu hợp đồng điện tử Master.
+   */
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName.trim() || !formContent.trim()) {
@@ -170,6 +182,9 @@ export default function PlatformContractTemplatesPage() {
     }
   };
 
+  /**
+   * [UC-45] Xóa bỏ hoặc lưu trữ mẫu hợp đồng điện tử khỏi hệ thống sau khi xác nhận.
+   */
   const handleDelete = async (templateId: number) => {
     if (!window.confirm('Bạn có chắc chắn muốn xóa / lưu trữ mẫu hợp đồng này?')) return;
     try {

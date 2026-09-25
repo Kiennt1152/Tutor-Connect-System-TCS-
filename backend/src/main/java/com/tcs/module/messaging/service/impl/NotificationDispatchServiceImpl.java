@@ -35,6 +35,21 @@ public class NotificationDispatchServiceImpl implements NotificationDispatchServ
     private final EmailService emailService;
     private final NotificationTemplateService notificationTemplateService;
 
+    /**
+     * [UC-53] Hiện thực gửi thông báo trong ứng dụng và lưu vào hàng đợi phân phối.
+     * 
+     * Luồng xử lý:
+     * 1. Chuẩn hóa các thuật ngữ hiển thị cho người dùng qua normalizeUserFacingText.
+     * 2. Tạo bản ghi thực thể Notification và lưu vào CSDL với trạng thái SENT.
+     * 3. Tạo bản ghi NotificationQueue kênh IN_APP để quản lý lịch sử phân phối.
+     * 
+     * @param user Người nhận
+     * @param type Phân loại thông báo
+     * @param title Tiêu đề
+     * @param content Nội dung
+     * @param referenceType Loại thực thể liên kết
+     * @param referenceId ID thực thể liên kết
+     */
     @Override
     @Transactional
     public void notifyUser(
@@ -63,6 +78,18 @@ public class NotificationDispatchServiceImpl implements NotificationDispatchServ
         notificationQueueRepository.save(queue);
     }
 
+    /**
+     * [UC-53] Hiện thực gửi thư thông báo email và lưu vết lịch sử thông báo.
+     * 
+     * Luồng xử lý:
+     * 1. Gửi email văn bản thuần túy tới địa chỉ email người dùng qua EmailService.
+     * 2. Lưu bản ghi Notification loại SYSTEM ở trạng thái đã đọc (isRead = true).
+     * 3. Tạo bản ghi NotificationQueue kênh EMAIL lưu vết phân phối.
+     * 
+     * @param user Người nhận email
+     * @param subject Tiêu đề email
+     * @param body Nội dung email
+     */
     @Override
     @Transactional
     public void notifyUserByEmail(User user, String subject, String body) {
@@ -85,6 +112,23 @@ public class NotificationDispatchServiceImpl implements NotificationDispatchServ
         notificationQueueRepository.save(queue);
     }
 
+    /**
+     * [UC-53] Gửi thông báo tự động từ mẫu template động hoặc văn bản dự phòng.
+     * 
+     * Luồng xử lý:
+     * 1. Yêu cầu NotificationTemplateService nội suy mẫu template tương ứng với biến truyền vào.
+     * 2. Nếu template không hoạt động, sử dụng tiêu đề và nội dung fallback dự phòng.
+     * 3. Gọi hàm notifyUser để phát thông báo tới người dùng.
+     * 
+     * @param user Người nhận
+     * @param type Phân loại thông báo
+     * @param templateCode Mã template
+     * @param variables Bản đồ biến số
+     * @param fallbackTitle Tiêu đề dự phòng
+     * @param fallbackContent Nội dung dự phòng
+     * @param referenceType Loại thực thể
+     * @param referenceId ID thực thể
+     */
     @Override
     @Transactional
     public void notifyUserFromTemplate(

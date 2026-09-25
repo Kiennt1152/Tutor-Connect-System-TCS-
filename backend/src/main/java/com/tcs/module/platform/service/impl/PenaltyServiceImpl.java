@@ -101,6 +101,14 @@ public class PenaltyServiceImpl implements PenaltyService {
     // LUỒNG 13: BAN HÀNH QUYẾT ĐỊNH XỬ PHẠT & TỰ ĐỘNG MÃN HẠN PHẠT (UC-60)
     // =========================================================================
 
+    /**
+     * [UC-63] Tác vụ nền chạy định kỳ mỗi 5 phút quét và tự động chuyển trạng thái mãn hạn cho các án phạt hết hạn.
+     * 
+     * Luồng xử lý:
+     * 1. Quét tìm tất cả bản ghi UserPenalty có trạng thái ACTIVE và expiresAt trước thời điểm hiện tại.
+     * 2. Cập nhật trạng thái từng án phạt sang EXPIRED.
+     * 3. Kiểm tra nếu người dùng không còn án phạt cấm nào khác đang có hiệu lực -> tự động phục hồi UserStatus thành ACTIVE.
+     */
     // Luồng 13 - Tác vụ chạy ngầm định kỳ 5 phút/lần tự động mở khóa khi hết hạn phạt cấm tạm thời
     @Scheduled(fixedRate = 5 * 60 * 1000)
     @Transactional

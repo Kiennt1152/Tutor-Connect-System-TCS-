@@ -56,6 +56,11 @@ public class NotificationTemplateServiceImpl implements NotificationTemplateServ
     private final NotificationTemplateRepository repository;
     private final AuditLogService auditLogService;
 
+    /**
+     * [UC-35] Lấy danh sách toàn bộ mẫu thông báo hệ thống được sắp xếp theo mã code.
+     * 
+     * @return Danh sách NotificationTemplateResponse
+     */
     @Override
     @Transactional(readOnly = true)
     public List<NotificationTemplateResponse> findAll() {
@@ -65,12 +70,29 @@ public class NotificationTemplateServiceImpl implements NotificationTemplateServ
                 .toList();
     }
 
+    /**
+     * [UC-35] Tìm kiếm thông tin chi tiết một mẫu thông báo theo ID.
+     * 
+     * @param templateId ID mẫu thông báo
+     * @return NotificationTemplateResponse chi tiết mẫu
+     */
     @Override
     @Transactional(readOnly = true)
     public NotificationTemplateResponse findById(Long templateId) {
         return toResponse(required(templateId));
     }
 
+    /**
+     * [UC-35] Tạo mới mẫu thông báo hệ thống và lưu trữ vào CSDL.
+     * 
+     * Luồng xử lý:
+     * 1. Chuẩn hóa mã code và kiểm tra tính duy nhất.
+     * 2. Xác thực tính hợp lệ của cú pháp placeholder trong tiêu đề và nội dung.
+     * 3. Lưu bản ghi NotificationTemplate và ghi nhận vết kiểm toán CREATE_NOTIFICATION_TEMPLATE.
+     * 
+     * @param request Dữ liệu tạo mới mẫu
+     * @return NotificationTemplateResponse thông tin mẫu đã tạo
+     */
     @Override
     @Transactional
     public NotificationTemplateResponse create(UpsertNotificationTemplateRequest request) {
@@ -86,6 +108,18 @@ public class NotificationTemplateServiceImpl implements NotificationTemplateServ
         return toResponse(saved);
     }
 
+    /**
+     * [UC-35] Cập nhật thông tin chi tiết của mẫu thông báo hệ thống.
+     * 
+     * Luồng xử lý:
+     * 1. Tìm bản ghi theo ID, kiểm tra mã code không bị trùng lặp với mẫu khác.
+     * 2. Xác thực cú pháp placeholder và áp dụng các thuộc tính mới.
+     * 3. Lưu cập nhật và ghi nhận nhật ký kiểm toán UPDATE_NOTIFICATION_TEMPLATE.
+     * 
+     * @param templateId ID mẫu cần sửa
+     * @param request Dữ liệu cập nhật
+     * @return NotificationTemplateResponse thông tin mẫu sau khi cập nhật
+     */
     @Override
     @Transactional
     public NotificationTemplateResponse update(Long templateId, UpsertNotificationTemplateRequest request) {
@@ -102,6 +136,17 @@ public class NotificationTemplateServiceImpl implements NotificationTemplateServ
         return toResponse(saved);
     }
 
+    /**
+     * [UC-35] Vô hiệu hóa mẫu thông báo hệ thống.
+     * 
+     * Luồng xử lý:
+     * 1. Tìm mẫu thông báo và kiểm tra nếu đang bật.
+     * 2. Đặt enabled = false và lưu vào CSDL.
+     * 3. Ghi nhận nhật ký kiểm toán DISABLE_NOTIFICATION_TEMPLATE.
+     * 
+     * @param templateId ID mẫu cần tắt
+     * @return NotificationTemplateResponse thông tin mẫu sau khi tắt
+     */
     @Override
     @Transactional
     public NotificationTemplateResponse disable(Long templateId) {
@@ -118,6 +163,17 @@ public class NotificationTemplateServiceImpl implements NotificationTemplateServ
     }
 
     @Override
+    /**
+     * [UC-35] Xem trước kết quả nội suy dữ liệu vào mẫu thông báo.
+     * 
+     * Luồng xử lý:
+     * 1. Xác thực cú pháp các chuỗi mẫu tiêu đề và nội dung.
+     * 2. Thực hiện thay thế các biến số placeholder bằng giá trị tương ứng.
+     * 3. Phát hiện và liệt kê các placeholder còn thiếu giá trị.
+     * 
+     * @param request Yêu cầu xem trước
+     * @return NotificationTemplatePreviewResponse kết quả xem trước
+     */
     @Transactional(readOnly = true)
     public NotificationTemplatePreviewResponse preview(PreviewNotificationTemplateRequest request) {
         validateSyntax(request.getTitleTemplate());
@@ -133,6 +189,17 @@ public class NotificationTemplateServiceImpl implements NotificationTemplateServ
                 .build();
     }
 
+    /**
+     * [UC-35] Nội suy và kết xuất nội dung từ mẫu thông báo đang có hiệu lực.
+     * 
+     * Luồng xử lý:
+     * 1. Tìm kiếm mẫu theo code và kiểm tra cờ enabled.
+     * 2. Nội suy các biến vào tiêu đề và nội dung nếu tìm thấy mẫu hoạt động.
+     * 
+     * @param code Mã mẫu thông báo
+     * @param variables Bộ biến số thay thế
+     * @return Optional chứa RenderedTemplate nếu có mẫu phù hợp, ngược lại empty
+     */
     @Override
     @Transactional(readOnly = true)
     public Optional<RenderedTemplate> renderEnabled(String code, Map<String, ?> variables) {

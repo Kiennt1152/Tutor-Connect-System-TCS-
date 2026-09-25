@@ -71,6 +71,9 @@ export default function MessagingPage({ initialTab }: MessagingPageProps) {
     sendMessage,
   } = useMessages(selectedConvId);
 
+  /**
+   * [UC-50, UC-51] Chọn một cuộc hội thoại từ danh sách, chuyển tab sang chat và tự động đánh dấu đã đọc.
+   */
   const handleSelectConv = (conv: ConversationResponse) => {
     setActiveTab('chat');
     setSearchParams({ conv: String(conv.conversationId) });
@@ -81,6 +84,9 @@ export default function MessagingPage({ initialTab }: MessagingPageProps) {
     }
   };
 
+  /**
+   * [UC-50] Bắt đầu hoặc truy xuất cuộc hội thoại 1-1 với người dùng được chọn từ modal tìm kiếm.
+   */
   const handleSelectUser = async (targetUser: UserSummaryResponse) => {
     setShowSearch(false);
     try {
@@ -93,6 +99,9 @@ export default function MessagingPage({ initialTab }: MessagingPageProps) {
     }
   };
 
+  /**
+   * [UC-50] Khởi tạo nhóm chat mới với danh sách thành viên được chỉ định.
+   */
   const handleCreateGroup = async (name: string, members: UserSummaryResponse[]) => {
     const conversation = await messagingApi.createGroup({
       name,
@@ -104,6 +113,9 @@ export default function MessagingPage({ initialTab }: MessagingPageProps) {
     setShowSearch(false);
   };
 
+  /**
+   * [UC-50] Xử lý khi người dùng rời khỏi nhóm chat, đóng bảng thông tin nhóm và tải lại danh sách hội thoại.
+   */
   const handleLeftGroup = (conversationId: number) => {
     setShowGroupInfo(false);
     if (selectedConvId === conversationId) {
@@ -112,6 +124,9 @@ export default function MessagingPage({ initialTab }: MessagingPageProps) {
     void reloadConversations();
   };
 
+  /**
+   * [UC-50] Xóa cuộc hội thoại khỏi danh sách hiển thị và chuyển sang hội thoại kế tiếp hoặc tab mặc định.
+   */
   const handleDeleteConversation = (conversationId: number) => {
     if (selectedConvId === conversationId) {
       const remaining = conversations.filter((c) => c.conversationId !== conversationId);

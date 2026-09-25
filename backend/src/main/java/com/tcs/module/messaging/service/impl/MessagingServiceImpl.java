@@ -84,6 +84,16 @@ public class MessagingServiceImpl implements MessagingService {
     private final TicketMessageRepository ticketMessageRepository;
     private final NotificationDispatchService notificationDispatchService;
 
+    /**
+     * [UC-51] Lấy danh sách toàn bộ thông báo của người dùng hiện tại.
+     * 
+     * Luồng xử lý:
+     * 1. Xác thực ID người dùng từ Security Context.
+     * 2. Truy vấn danh sách thông báo từ CSDL theo userId, sắp xếp createdAt giảm dần.
+     * 3. Ánh xạ sang danh sách DTO NotificationResponse.
+     * 
+     * @return Danh sách thông báo {@link NotificationResponse}
+     */
     @Override
     @Transactional(readOnly = true)
     public List<NotificationResponse> getMyNotifications() {
@@ -92,6 +102,18 @@ public class MessagingServiceImpl implements MessagingService {
                 .toList();
     }
 
+    /**
+     * [UC-51] Đánh dấu thông báo là đã đọc và ghi nhận thời gian đọc.
+     * 
+     * Luồng xử lý:
+     * 1. Tìm thông báo theo ID trong CSDL.
+     * 2. Xác thực quyền sở hữu: Kiểm tra thông báo có thuộc về người dùng hiện tại không.
+     * 3. Đặt isRead = true, ghi nhận thời điểm readAt = LocalDateTime.now() và lưu CSDL.
+     * 
+     * @param notificationId ID thông báo cần đánh dấu
+     * @throws ResourceNotFoundException nếu không tìm thấy thông báo
+     * @throws ForbiddenException nếu không phải chủ sở hữu thông báo
+     */
     @Override
     @Transactional
     public void markAsRead(Long notificationId) {
@@ -110,7 +132,22 @@ public class MessagingServiceImpl implements MessagingService {
     // LUỒNG 3: NGƯỜI DÙNG TẠO TICKET HỖ TRỢ & TỰ ĐỘNG TÍNH HẠN SLA (UC-65, UC-66)
     // =========================================================================
 
-    // Luồng 3 - Bước 1: Tiếp nhận yêu cầu tạo phiếu hỗ trợ kỹ thuật
+    /**
+     * [UC-65, UC-66] Tiếp nhận và tạo mới phiếu yêu cầu hỗ trợ kỹ thuật, tự động tính hạn SLA.
+     * 
+     * Luồng xử lý:
+     * 1. Kiểm tra tính hợp lệ của tham số đầu vào (category, subject).
+     * 2. Xác định danh tính người dùng tạo ticket từ AuthHelper.
+     * 3. Tính toán mức ưu tiên sàn (Priority Escalation) dựa trên danh mục sự cố.
+     * 4. Tính toán thời hạn cam kết SLA (dueAt) theo mức độ ưu tiên.
+     * 5. Lưu thực thể SupportTicket vào bảng support_tickets.
+     * 6. Khởi tạo tin nhắn đầu tiên trong chuỗi hội thoại TicketMessage.
+     * 7. Phát thông báo In-App thời gian thực tới tất cả Admin đang hoạt động.
+     * 
+     * @param request Thông tin tạo yêu cầu hỗ trợ {@link CreateSupportTicketRequest}
+     * @return DTO thông tin ticket vừa được tạo {@link SupportTicketResponse}
+     * @throws IllegalArgumentException nếu thiếu danh mục hoặc tiêu đề
+     */
     @Override
     @Transactional
     public SupportTicketResponse createSupportTicket(CreateSupportTicketRequest request) {
@@ -156,6 +193,16 @@ public class MessagingServiceImpl implements MessagingService {
         return toResponse(saved);
     }
 
+    /**
+     * [UC-66] Lấy danh sách yêu cầu hỗ trợ của người dùng hiện tại.
+     * 
+     * Luồng xử lý:
+     * 1. Lấy userId từ AuthHelper.
+     * 2. Truy vấn repository tìm tất cả ticket của người dùng, sắp xếp giảm dần theo ngày tạo.
+     * 3. Chuyển đổi các thực thể sang DTO SupportTicketResponse.
+     * 
+     * @return Danh sách DTO {@link SupportTicketResponse}
+     */
     @Override
     @Transactional(readOnly = true)
     public List<SupportTicketResponse> getMySupportTickets() {
@@ -164,6 +211,20 @@ public class MessagingServiceImpl implements MessagingService {
                 .toList();
     }
 
+    /**
+     * [UC-66] Xem chi tiết một ticket hỗ trợ kèm chuỗi hội thoại trao đổi.
+     * 
+     * Luồng xử lý:
+     * 1. Tìm SupportTicket theo ID trong CSDL.
+     * 2. Kiểm tra quyền sở hữu (người dùng hiện tại phải là người tạo ticket).
+     * 3. Tải toàn bộ danh sách tin nhắn và tài liệu bằng chứng đính kèm liên quan.
+     * 4. Đóng gói và trả về SupportTicketDetailResponse.
+     * 
+     * @param ticketId ID ticket hỗ trợ cần xem
+     * @return Chi tiết ticket {@link SupportTicketDetailResponse}
+     * @throws ResourceNotFoundException nếu không tìm thấy ticket
+     * @throws ForbiddenException nếu không có quyền truy cập
+     */
     @Override
     @Transactional(readOnly = true)
     public SupportTicketDetailResponse getMySupportTicketDetail(Long ticketId) {
@@ -301,6 +362,21 @@ public class MessagingServiceImpl implements MessagingService {
         return StringUtils.hasText(email) ? email : "Người dùng #" + sender.getUserId();
     }
 
+    /**
+     * [UC-66] Gửi thêm tin nhắn phản hồi / bổ sung bằng chứng vào ticket hỗ trợ đang xử lý.
+     * 
+     * Luồng xử lý:
+     * 1. Tìm ticket theo ID và xác thực người gửi là chủ sở hữu ticket.
+     * 2. Kiểm tra trạng thái ticket: Không cho phép phản hồi ticket đã CLOSED hoặc RESOLVED.
+     * 3. Tạo mới bản ghi TicketMessage với isFromAdmin = false và lưu vào CSDL.
+     * 4. Nếu trạng thái ticket đang là IN_REVIEW, chuyển lại về OPEN để chờ Admin tiếp tục xử lý.
+     * 
+     * @param ticketId ID ticket hỗ trợ
+     * @param request Dữ liệu phản hồi {@link ReplyTicketRequest}
+     * @return Thông tin tin nhắn vừa gửi {@link TicketMessageResponse}
+     * @throws ForbiddenException nếu không phải chủ sở hữu ticket
+     * @throws IllegalArgumentException nếu ticket đã đóng hoặc đã giải quyết
+     */
     @Override
     @Transactional
     public TicketMessageResponse replySupportTicket(Long ticketId, ReplyTicketRequest request) {
@@ -338,12 +414,35 @@ public class MessagingServiceImpl implements MessagingService {
         return toTicketMessage(saved, ticket);
     }
 
+    /**
+     * [UC-66] Mở lại ticket hỗ trợ đã đóng mà không kèm dữ liệu bổ sung.
+     * 
+     * @param ticketId ID ticket cần mở lại
+     * @return Chi tiết ticket sau khi mở lại {@link SupportTicketDetailResponse}
+     */
     @Override
     @Transactional
     public SupportTicketDetailResponse reopenSupportTicket(Long ticketId) {
         return reopenSupportTicket(ticketId, null);
     }
 
+    /**
+     * [UC-66] Mở lại ticket hỗ trợ đã giải quyết hoặc đã đóng kèm lý do giải trình.
+     * 
+     * Luồng xử lý:
+     * 1. Tìm ticket theo ID và xác thực quyền sở hữu của người dùng.
+     * 2. Kiểm tra điều kiện: Ticket bắt buộc phải ở trạng thái CLOSED hoặc RESOLVED.
+     * 3. Cập nhật trạng thái sang OPEN, xóa mốc thời gian giải quyết/đóng cũ.
+     * 4. Tính toán thời hạn cam kết SLA mới (dueAt) và đặt lại cờ slaBreached = false.
+     * 5. Lưu tin nhắn mở lại vào lịch sử hội thoại ticket_messages.
+     * 6. Phát thông báo In-App tới Quản trị viên và thông báo xác nhận tới Người dùng.
+     * 
+     * @param ticketId ID ticket cần mở lại
+     * @param request Lý do và bằng chứng mở lại {@link ReplyTicketRequest}
+     * @return Chi tiết ticket sau khi mở lại {@link SupportTicketDetailResponse}
+     * @throws ForbiddenException nếu không có quyền mở lại ticket
+     * @throws IllegalArgumentException nếu ticket chưa được đóng
+     */
     @Override
     @Transactional
     public SupportTicketDetailResponse reopenSupportTicket(Long ticketId, ReplyTicketRequest request) {
@@ -429,6 +528,21 @@ public class MessagingServiceImpl implements MessagingService {
                 ticket.getTicketId());
     }
 
+    /**
+     * [UC-49] Tạo mới báo cáo vi phạm đối với người dùng, lớp học hoặc đánh giá trên nền tảng.
+     * 
+     * Luồng xử lý:
+     * 1. Xác thực các trường bắt buộc (targetType, targetId, category) và độ dài mô tả >= 10 ký tự.
+     * 2. Kiểm tra giới hạn tần suất tạo báo cáo (tối đa 5 báo cáo trong vòng 24 giờ qua).
+     * 3. Kiểm tra tính hợp lệ: Người dùng không được tự báo cáo chính mình.
+     * 4. Xác minh sự tồn tại của đối tượng bị báo cáo (User, Class, Review).
+     * 5. Lưu thực thể Report vào bảng reports với trạng thái PENDING.
+     * 6. Trả về thông tin báo cáo dạng ReportResponse.
+     * 
+     * @param request Thông tin báo cáo {@link CreateReportRequest}
+     * @return Chi tiết báo cáo đã tạo {@link ReportResponse}
+     * @throws IllegalArgumentException nếu thiếu trường dữ liệu, vượt hạn mức hoặc tự báo cáo chính mình
+     */
     @Override
     @Transactional
     public ReportResponse createReport(CreateReportRequest request) {

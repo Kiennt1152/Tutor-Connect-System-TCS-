@@ -58,6 +58,18 @@ public class SystemParameterServiceImpl implements SystemParameterService {
     private final AuditLogService auditLogService;
 
     // Luồng 10 - Bước 1: Tra cứu danh sách tham số hệ thống
+    /**
+     * [UC-57] Liệt kê và lọc danh sách tham số cấu hình hệ thống.
+     * 
+     * Luồng xử lý:
+     * 1. Tìm theo prefix nếu có, ngược lại lấy toàn bộ danh sách tham số từ CSDL.
+     * 2. Lọc theo từ khóa keyword nếu được truyền vào (so khớp paramKey hoặc paramValue).
+     * 3. Sắp xếp danh sách theo paramKey tăng dần và chuyển đổi sang DTO SystemParameterResponse.
+     * 
+     * @param prefix Tiền tố khóa cần lọc
+     * @param keyword Từ khóa tìm kiếm
+     * @return Danh sách SystemParameterResponse phù hợp
+     */
     @Override
     @Transactional(readOnly = true)
     public List<SystemParameterResponse> getParameters(String prefix, String keyword) {
@@ -79,12 +91,29 @@ public class SystemParameterServiceImpl implements SystemParameterService {
                 .toList();
     }
 
+    /**
+     * [UC-57] Lấy thông tin chi tiết một tham số cấu hình hệ thống.
+     * 
+     * @param parameterId ID tham số
+     * @return SystemParameterResponse chi tiết tham số
+     */
     @Override
     @Transactional(readOnly = true)
     public SystemParameterResponse getParameter(Long parameterId) {
         return toResponse(getRequiredParameter(parameterId));
     }
 
+    /**
+     * [UC-57] Tạo mới tham số hệ thống kèm xác thực định dạng và tính duy nhất.
+     * 
+     * Luồng xử lý:
+     * 1. Chuẩn hóa tên khóa paramKey, kiểm tra không bị trùng lặp trong CSDL.
+     * 2. Xác thực giá trị paramValue tương ứng với loại khóa (tỷ lệ phần trăm, số ngày, chuỗi JSON).
+     * 3. Lưu thực thể SystemParameter và ghi nhận nhật ký kiểm toán CREATE_SYSTEM_PARAMETER.
+     * 
+     * @param request Dữ liệu tham số tạo mới
+     * @return SystemParameterResponse thông tin tham số đã tạo
+     */
     // Luồng 10 - Bước 2: Tạo tham số mới kèm kiểm tra tính duy nhất của paramKey
     @Override
     @Transactional
@@ -103,6 +132,19 @@ public class SystemParameterServiceImpl implements SystemParameterService {
         return toResponse(saved);
     }
 
+    /**
+     * [UC-57] Cập nhật giá trị tham số cấu hình hệ thống.
+     * 
+     * Luồng xử lý:
+     * 1. Tìm tham số theo ID, kiểm tra không được đổi tên các khóa bắt buộc cốt lõi (MANDATORY_KEYS).
+     * 2. Đảm bảo tên khóa mới không trùng với tham số khác.
+     * 3. Xác thực tính hợp lệ của giá trị mới và lưu cập nhật.
+     * 4. Ghi nhận nhật ký kiểm toán UPDATE_SYSTEM_PARAMETER kèm snapshot thay đổi.
+     * 
+     * @param parameterId ID tham số cần sửa
+     * @param request Dữ liệu cập nhật
+     * @return SystemParameterResponse thông tin tham số sau khi cập nhật
+     */
     // Luồng 10 - Bước 3: Cập nhật giá trị tham số (như PLATFORM_FEE_RATE: 0.10 -> 0.12)
     @Override
     @Transactional
@@ -132,6 +174,16 @@ public class SystemParameterServiceImpl implements SystemParameterService {
         return toResponse(saved);
     }
 
+    /**
+     * [UC-57] Xóa bỏ tham số cấu hình tùy chỉnh (chặn không cho xóa các khóa bắt buộc).
+     * 
+     * Luồng xử lý:
+     * 1. Tìm tham số theo ID.
+     * 2. Kiểm tra nếu paramKey thuộc danh sách MANDATORY_KEYS -> ném lỗi cấm xóa.
+     * 3. Xóa tham số khỏi CSDL và ghi log kiểm toán DELETE_SYSTEM_PARAMETER.
+     * 
+     * @param parameterId ID tham số cần xóa
+     */
     // Luồng 10 - Bước 4: Xóa tham số tùy chỉnh (Chặn tuyệt đối không cho xóa MANDATORY_KEYS)
     @Override
     @Transactional

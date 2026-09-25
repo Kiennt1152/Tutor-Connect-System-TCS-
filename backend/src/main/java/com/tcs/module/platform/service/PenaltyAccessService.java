@@ -23,5 +23,17 @@ package com.tcs.module.platform.service;
  * ============================================================================
  */
 public interface PenaltyAccessService {
+    /**
+     * [UC-63] Cổng chắn kiểm tra quyền sử dụng tính năng của người dùng dựa trên án phạt đang hiệu lực.
+     * 
+     * Luồng xử lý:
+     * 1. Tiếp nhận ID người dùng và mã tính năng cần thao tác (ví dụ: CHAT, POST_CLASS, APPLY_CLASS).
+     * 2. Kiểm tra xem người dùng có án phạt FEATURE_RESTRICTION đang kích hoạt và chưa hết hạn hay không.
+     * 3. Nếu tính năng bị hạn chế, ném ngoại lệ ForbiddenException để chặn đứng thao tác.
+     * 
+     * @param userId Định danh người dùng cần kiểm tra
+     * @param featureCode Mã tính năng cần bảo vệ (không phân biệt hoa thường)
+     * @throws com.tcs.exception.ForbiddenException nếu người dùng đang chịu chế tài hạn chế tính năng này
+     */
     void requireFeature(Long userId, String featureCode);
 }

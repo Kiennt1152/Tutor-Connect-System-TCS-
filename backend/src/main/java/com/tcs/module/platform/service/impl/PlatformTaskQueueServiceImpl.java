@@ -62,12 +62,20 @@ public class PlatformTaskQueueServiceImpl implements PlatformTaskQueueService {
     private final DisputeRepository disputeRepository;
 
     // =========================================================================
-    // LUỒNG 8: TỔNG HỢP HÀNG ĐỢI NHIỆM VỤ TRỰC BAN KHẨN CẤP (UC-56)
+    // LUỒNG 8: TỔNG HỢP HÀNG ĐỢI NHIỆM VỤ TRỰC BAN KHẨN CẤP (UC-64)
     // =========================================================================
 
     /**
-     * Tổng hợp các chỉ số thống kê hàng đợi nhiệm vụ trực ban của Admin.
-     *     * @return đối tượng TaskQueueSummaryResponse chứa số lượng công việc theo từng nhóm và mức ưu tiên
+     * [UC-64] Tổng hợp các chỉ số thống kê hàng đợi nhiệm vụ trực ban của Quản trị viên.
+     * 
+     * Luồng xử lý:
+     * 1. Thu thập toàn bộ tác vụ đang mở từ 6 repository nguồn qua getAllTasks().
+     * 2. Gom nhóm và đếm số lượng công việc theo từng phân hệ nghiệp vụ.
+     * 3. Phân loại theo thang mức ưu tiên (URGENT, HIGH, MEDIUM, LOW).
+     * 4. Tính toán tổng số lượng tác vụ đã vượt quá ngưỡng cam kết dịch vụ (SLA Breached).
+     * 5. Tổng hợp tổng số tiền rủi ro (Money At Risk) từ các vụ tranh chấp Escrow và yêu cầu hoàn tiền đang chờ duyệt.
+     * 
+     * @return TaskQueueSummaryResponse chứa số lượng công việc theo từng nhóm, mức ưu tiên, số vụ quá hạn và tiền rủi ro
      */
     // Luồng 8 - Phân vùng 1 & 5: Tổng hợp số lượng công việc tồn đọng (Tickets, Báo cáo, Rút tiền, Tiền rủi ro)
     @Override
@@ -119,6 +127,24 @@ public class PlatformTaskQueueServiceImpl implements PlatformTaskQueueService {
                 .build();
     }
 
+    /**
+     * [UC-64] Lấy danh sách nhiệm vụ trực ban được phân trang và lọc theo đa tiêu chí.
+     * 
+     * Luồng xử lý:
+     * 1. Thu thập toàn bộ danh sách tác vụ đang chờ xử lý từ tất cả các phân hệ.
+     * 2. Áp dụng bộ lọc loại tác vụ (type) nếu được chỉ định và khác "ALL".
+     * 3. Áp dụng bộ lọc mức độ ưu tiên (priority) nếu được chỉ định và khác "ALL".
+     * 4. Lọc theo trạng thái vi phạm hạn xử lý SLA (slaBreached) nếu có giá trị.
+     * 5. Sắp xếp danh sách: Ưu tiên cao nhất lên đầu -> Hạn xử lý gần nhất -> Thời gian tạo sớm nhất.
+     * 6. Phân trang dữ liệu theo tham số page và size, đóng gói phản hồi PageTaskItemResponse.
+     * 
+     * @param type Phân loại tác vụ cần lọc (VERIFICATION, REPORT, SUPPORT_TICKET, WITHDRAWAL, REFUND_REQUEST, DISPUTE, CIRCUMVENTION hoặc ALL)
+     * @param priority Mức độ ưu tiên cần lọc (URGENT, HIGH, MEDIUM, LOW hoặc ALL)
+     * @param slaBreached Trạng thái vi phạm cam kết SLA
+     * @param page Số trang (bắt đầu từ 0)
+     * @param size Số phần tử trên mỗi trang
+     * @return PageTaskItemResponse chứa danh sách công việc cùng thông tin phân trang
+     */
     @Override
     public PageTaskItemResponse listTasks(String type, String priority, Boolean slaBreached, int page, int size) {
         List<TaskItemResponse> allItems = getAllTasks();
@@ -158,6 +184,19 @@ public class PlatformTaskQueueServiceImpl implements PlatformTaskQueueService {
                 .totalPages(totalPages)
                 .build();
     }
+    /**
+     * [UC-64] Tập hợp toàn bộ nhiệm vụ tồn đọng từ 6 phân hệ nghiệp vụ và chuẩn hóa SLA.
+     * 
+     * Luồng xử lý:
+     * 1. Truy vấn hồ sơ xác minh KYC đang ở trạng thái SUBMITTED hoặc UNDER_REVIEW (SLA: 48h, độ ưu tiên: MEDIUM).
+     * 2. Truy vấn báo cáo vi phạm PENDING, nhận diện báo cáo lách sàn PLATFORM_CIRCUMVENTION (SLA: 24h, độ ưu tiên: HIGH/MEDIUM).
+     * 3. Truy vấn các Support Ticket đang mở (OPEN, IN_PROGRESS, IN_REVIEW) với SLA 12h cho URGENT/HIGH, 24h cho loại khác.
+     * 4. Truy vấn các yêu cầu rút tiền ví PENDING (SLA: 48h, độ ưu tiên: HIGH).
+     * 5. Truy vấn các yêu cầu hoàn tiền học phí PENDING (SLA: 72h, độ ưu tiên: HIGH).
+     * 6. Truy vấn các vụ tranh chấp giao dịch OPEN, UNDER_INVESTIGATION, WAITING (SLA: 24h, độ ưu tiên: URGENT, kèm số tiền rủi ro).
+     * 
+     * @return Danh sách TaskItemResponse chứa toàn bộ các tác vụ đang cần Quản trị viên xử lý
+     */
     public List<TaskItemResponse> getAllTasks() {
         List<TaskItemResponse> allItems = new ArrayList<>();
         LocalDateTime now = LocalDateTime.now();

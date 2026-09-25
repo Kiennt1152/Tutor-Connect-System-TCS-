@@ -71,6 +71,20 @@ public class AuditLogServiceImpl implements AuditLogService {
     // LUỒNG 11: GIÁM SÁT NHẬT KÝ KIỂM TOÁN & SO VẾT THAY ĐỔI JSON DIFF (UC-61)
     // =========================================================================
 
+    /**
+     * [UC-61] Ghi nhận vết kiểm toán tự động phân giải định danh người dùng từ SecurityContext.
+     * 
+     * Luồng xử lý:
+     * 1. Phân giải userId của người thực hiện thông qua AuthHelper.
+     * 2. Bắt ngoại lệ an toàn nếu request chạy ngầm hoặc không có token JWT.
+     * 3. Chuyển giao sang phương thức record có tham số actorUserId.
+     * 
+     * @param action Mã hành động
+     * @param entityType Loại đối tượng bị tác động
+     * @param entityId ID đối tượng
+     * @param oldValue Dữ liệu trước thay đổi
+     * @param newValue Dữ liệu sau thay đổi
+     */
     // Luồng 11 - Bước 1: Ghi nhận vết kiểm toán tự động từ SecurityContext
     @Override
     public void record(String action, String entityType, Long entityId, Object oldValue, Object newValue) {
@@ -83,6 +97,23 @@ public class AuditLogServiceImpl implements AuditLogService {
         record(userId, action, entityType, entityId, oldValue, newValue);
     }
 
+    /**
+     * [UC-61] Khởi tạo thực thể AuditLog, tuần tự hóa JSON Diff và trích xuất địa chỉ IP/User-Agent.
+     * 
+     * Luồng xử lý:
+     * 1. Khởi tạo đối tượng AuditLog với các thông tin nghiệp vụ cơ bản và thời gian hiện tại.
+     * 2. Tìm kiếm và liên kết thông tin thực thể User của người thực hiện nếu có actorUserId.
+     * 3. Chuyển đổi đối tượng oldValue và newValue thành chuỗi JSON đại diện cho ảnh chụp thay đổi.
+     * 4. Trích xuất địa chỉ IP và trình duyệt người dùng từ ServletRequestAttributes hiện hành.
+     * 5. Lưu bản ghi bất biến vào cơ sở dữ liệu qua AuditLogRepository.
+     * 
+     * @param actorUserId ID người thực hiện hành động
+     * @param action Tên hành động
+     * @param entityType Loại thực thể
+     * @param entityId ID thực thể
+     * @param oldValue Đối tượng cũ trước thay đổi
+     * @param newValue Đối tượng mới sau thay đổi
+     */
     // Luồng 11 - Bước 2: Khởi tạo thực thể AuditLog, tuần tự hóa JSON Diff và trích xuất IP/User-Agent
     @Override
     public void record(Long actorUserId, String action, String entityType, Long entityId, Object oldValue, Object newValue) {
@@ -127,6 +158,26 @@ public class AuditLogServiceImpl implements AuditLogService {
         auditLogRepository.save(auditLog);
     }
 
+    /**
+     * [UC-61] Tra cứu và phân trang danh sách nhật ký kiểm toán đa tiêu chí phục vụ thanh tra hệ thống.
+     * 
+     * Luồng xử lý:
+     * 1. Chuẩn hóa từ khóa tìm kiếm và vai trò người dùng (loại bỏ khoảng trắng, đổi hoa/thường).
+     * 2. Thực thi truy vấn phân trang qua AuditLogRepository.search() với các tiêu chí lọc kết hợp.
+     * 3. Chuyển đổi danh sách thực thể AuditLog sang DTO AuditLogResponse, làm giàu thông tin vai trò người thực hiện.
+     * 4. Đóng gói kết quả phân trang PageAuditLogResponse trả về cho giao diện quản trị.
+     * 
+     * @param actorId ID người thực hiện
+     * @param actorRole Vai trò người thực hiện
+     * @param action Tên hành động
+     * @param entityType Loại thực thể
+     * @param keyword Từ khóa tìm kiếm
+     * @param from Mốc thời gian bắt đầu
+     * @param to Mốc thời gian kết thúc
+     * @param page Số trang (bắt đầu từ 0)
+     * @param size Số phần tử trên mỗi trang
+     * @return PageAuditLogResponse kết quả tra cứu nhật ký phân trang
+     */
     // Luồng 11 - Bước 3: Tra cứu & phân trang danh sách nhật ký kiểm toán đa tiêu chí
     @Override
     public PageAuditLogResponse search(Long actorId, String actorRole, String action, String entityType,

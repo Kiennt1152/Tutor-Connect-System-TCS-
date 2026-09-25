@@ -29,14 +29,48 @@ import java.time.LocalDateTime;
  * ============================================================================
  */
 public interface AuditLogService {
+    /**
+     * [UC-61] Ghi nhận nhật ký kiểm toán bất biến tự động xác định người dùng từ phiên đăng nhập hiện tại.
+     * 
+     * Luồng xử lý:
+     * 1. Lấy thông tin định danh người dùng (userId) từ SecurityContext thông qua AuthHelper.
+     * 2. Chuyển tiếp tới hàm ghi log chi tiết kèm ngữ cảnh mạng (IP, User-Agent) và chuỗi JSON Diff.
+     * 
+     * @param action Tên hành động nghiệp vụ thực hiện (ví dụ: APPROVE_TUTOR, LOCK_USER, REFUND_ESCROW)
+     * @param entityType Loại thực thể bị tác động (ví dụ: User, Contract, EscrowTransaction)
+     * @param entityId Định danh thực thể bị tác động
+     * @param oldValue Trạng thái hoặc giá trị dữ liệu trước khi thay đổi (tuần tự hóa JSON)
+     * @param newValue Trạng thái hoặc giá trị dữ liệu mới sau khi thay đổi (tuần tự hóa JSON)
+     */
     void record(String action, String entityType, Long entityId, Object oldValue, Object newValue);
 
     /**
-     * Ghi log voi actor duoc chi dinh ro (dung cho cac hanh dong xay ra truoc khi
-     * co JWT trong request, vi du: dang ky, dang nhap).
+     * [UC-61] Ghi nhận nhật ký kiểm toán với người thực hiện được chỉ định rõ ràng.
+     * Phù hợp cho các thao tác diễn ra trước hoặc ngoài phiên JWT (ví dụ: đăng ký tài khoản, đăng nhập, callback webhook).
+     * 
+     * @param actorUserId Định danh người thực hiện hành động
+     * @param action Tên hành động nghiệp vụ thực hiện
+     * @param entityType Loại thực thể bị tác động
+     * @param entityId Định danh thực thể bị tác động
+     * @param oldValue Trạng thái hoặc giá trị trước khi thay đổi
+     * @param newValue Trạng thái hoặc giá trị mới sau khi thay đổi
      */
     void record(Long actorUserId, String action, String entityType, Long entityId, Object oldValue, Object newValue);
 
+    /**
+     * [UC-61] Tra cứu và phân trang danh sách nhật ký kiểm toán đa tiêu chí phục vụ thanh tra an ninh.
+     * 
+     * @param actorId Lọc theo định danh người thực hiện
+     * @param actorRole Lọc theo vai trò người thực hiện (PLATFORM_ADMIN, TUTOR, CLIENT, TUTOR_CENTER)
+     * @param action Lọc theo mã hành vi nghiệp vụ
+     * @param entityType Lọc theo loại đối tượng thực thể
+     * @param keyword Từ khóa tìm kiếm tự do trong email, hành động, hoặc chi tiết thay đổi
+     * @param from Mốc thời gian bắt đầu
+     * @param to Mốc thời gian kết thúc
+     * @param page Số trang truy vấn (bắt đầu từ 0)
+     * @param size Số lượng bản ghi trên một trang
+     * @return PageAuditLogResponse kết quả phân trang nhật ký kiểm toán kèm thông tin đầy đủ người thực hiện
+     */
     PageAuditLogResponse search(Long actorId, String actorRole, String action, String entityType, String keyword,
             LocalDateTime from, LocalDateTime to, int page, int size);
 }

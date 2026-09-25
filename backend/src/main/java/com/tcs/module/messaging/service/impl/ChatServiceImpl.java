@@ -114,6 +114,11 @@ public class ChatServiceImpl implements ChatService {
      * Lấy danh sách toàn bộ các cuộc trò chuyện mà người dùng hiện tại đang tham gia.
      *     * @return danh sách cuộc trò chuyện được định dạng ConversationResponse
      */
+    /**
+     * [BF-09] Lấy danh sách toàn bộ cuộc trò chuyện của người dùng hiện tại kèm số tin chưa đọc.
+     * 
+     * @return Danh sách ConversationResponse
+     */
     @Override
     @Transactional(readOnly = true)
     public List<ConversationResponse> getMyConversations() {
@@ -122,6 +127,17 @@ public class ChatServiceImpl implements ChatService {
         return conversations.stream().map(c -> toConversationResponse(c, userId)).toList();
     }
 
+    /**
+     * [BF-09] Bắt đầu hoặc lấy lại cuộc trò chuyện 1-1 với người dùng đích.
+     * 
+     * Luồng xử lý:
+     * 1. Kiểm tra chế tài cấm chat của người gọi.
+     * 2. Chặn tự nhắn tin cho chính mình.
+     * 3. Tìm kiếm hội thoại DIRECT giữa 2 người; nếu chưa có thì khởi tạo mới.
+     * 
+     * @param targetUserId ID người dùng đích
+     * @return ConversationResponse thông tin cuộc trò chuyện
+     */
     @Override
     @Transactional
     public ConversationResponse startOrGetConversation(Long targetUserId) {
@@ -143,6 +159,13 @@ public class ChatServiceImpl implements ChatService {
         return toConversationResponse(conversation, userId);
     }
 
+    /**
+     * [BF-09] Tạo mới một cuộc trò chuyện nhóm (Group chat).
+     * 
+     * @param name Tên nhóm
+     * @param memberIds Danh sách thành viên
+     * @return ConversationResponse thông tin nhóm vừa tạo
+     */
     @Override
     @Transactional
     public ConversationResponse createGroup(String name, List<Long> memberIds) {
@@ -166,6 +189,12 @@ public class ChatServiceImpl implements ChatService {
         return toConversationResponse(saved, ownerUserId);
     }
 
+    /**
+     * [BF-09] Lấy danh sách thành viên trong nhóm trò chuyện.
+     * 
+     * @param conversationId ID hội thoại
+     * @return Danh sách GroupMemberResponse
+     */
     @Override
     @Transactional(readOnly = true)
     public List<GroupMemberResponse> getGroupMembers(Long conversationId) {
@@ -179,6 +208,13 @@ public class ChatServiceImpl implements ChatService {
                 .toList();
     }
 
+    /**
+     * [BF-09] Đổi tên nhóm trò chuyện.
+     * 
+     * @param conversationId ID hội thoại
+     * @param name Tên mới
+     * @return ConversationResponse thông tin nhóm sau khi đổi tên
+     */
     @Override
     @Transactional
     public ConversationResponse renameGroup(Long conversationId, String name) {
@@ -188,6 +224,13 @@ public class ChatServiceImpl implements ChatService {
         return toConversationResponse(conversationRepository.save(group), currentUserId);
     }
 
+    /**
+     * [BF-09] Thêm thành viên mới vào nhóm trò chuyện.
+     * 
+     * @param conversationId ID nhóm
+     * @param memberIds Danh sách ID cần thêm
+     * @return ConversationResponse thông tin nhóm
+     */
     @Override
     @Transactional
     public ConversationResponse addGroupMembers(Long conversationId, List<Long> memberIds) {
@@ -215,6 +258,12 @@ public class ChatServiceImpl implements ChatService {
         return toConversationResponse(group, currentUserId);
     }
 
+    /**
+     * [BF-09] Xóa thành viên ra khỏi nhóm trò chuyện.
+     * 
+     * @param conversationId ID nhóm
+     * @param memberUserId ID thành viên cần xóa
+     */
     @Override
     @Transactional
     public void removeGroupMember(Long conversationId, Long memberUserId) {
@@ -234,6 +283,13 @@ public class ChatServiceImpl implements ChatService {
                 conversationId, memberUserId);
     }
 
+    /**
+     * [BF-09] Chuyển giao quyền chủ sở hữu nhóm cho thành viên khác.
+     * 
+     * @param conversationId ID nhóm
+     * @param ownerUserId ID chủ sở hữu mới
+     * @return ConversationResponse thông tin nhóm sau chuyển giao
+     */
     @Override
     @Transactional
     public ConversationResponse transferGroupOwner(Long conversationId, Long ownerUserId) {
@@ -251,6 +307,11 @@ public class ChatServiceImpl implements ChatService {
         return toConversationResponse(conversationRepository.save(group), currentUserId);
     }
 
+    /**
+     * [BF-09] Tự rời khỏi nhóm trò chuyện.
+     * 
+     * @param conversationId ID nhóm
+     */
     @Override
     @Transactional
     public void leaveGroup(Long conversationId) {
@@ -264,6 +325,13 @@ public class ChatServiceImpl implements ChatService {
                 conversationId, currentUserId);
     }
 
+    /**
+     * [BF-09] Lấy hoặc khởi tạo cuộc trò chuyện gắn liền với ngữ cảnh nghiệp vụ.
+     * 
+     * @param contextType Loại ngữ cảnh (CLASS, CONTRACT, APPLICATION)
+     * @param contextIdStr ID ngữ cảnh
+     * @return ConversationResponse thông tin hội thoại
+     */
     @Override
     @Transactional
     public ConversationResponse getOrCreateContextConversation(String contextType, String contextIdStr) {
@@ -372,6 +440,14 @@ public class ChatServiceImpl implements ChatService {
         };
     }
 
+    /**
+     * [BF-09] Tải lịch sử tin nhắn trong cuộc trò chuyện có phân trang.
+     * 
+     * @param conversationId ID hội thoại
+     * @param page Số trang
+     * @param size Số tin nhắn mỗi trang
+     * @return Trang MessageResponse
+     */
     @Override
     @Transactional(readOnly = true)
     public Page<MessageResponse> getMessages(Long conversationId, int page, int size) {
@@ -387,6 +463,18 @@ public class ChatServiceImpl implements ChatService {
         return messages.map(this::toMessageResponse);
     }
 
+    /**
+     * [BF-09] Gửi tin nhắn mới vào cuộc trò chuyện và quét từ khóa lách sàn.
+     * 
+     * Luồng xử lý:
+     * 1. Kiểm tra án phạt cấm chat của người gửi.
+     * 2. Xác thực quyền thành viên trong hội thoại.
+     * 3. Lưu thực thể Message và kích hoạt CircumventionService.inspect để quét lách sàn.
+     * 4. Cập nhật mốc thời gian lastActivityAt của cuộc trò chuyện.
+     * 
+     * @param request Dữ liệu tin nhắn
+     * @return MessageResponse thông tin tin nhắn đã gửi
+     */
     @Override
     @Transactional
     public MessageResponse sendMessage(SendMessageRequest request) {
@@ -426,6 +514,11 @@ public class ChatServiceImpl implements ChatService {
         return response;
     }
 
+    /**
+     * [BF-09] Đánh dấu toàn bộ tin nhắn trong cuộc trò chuyện là đã đọc đối với người dùng hiện tại.
+     * 
+     * @param conversationId ID hội thoại
+     */
     @Override
     @Transactional
     public void markAsRead(Long conversationId) {
@@ -437,6 +530,12 @@ public class ChatServiceImpl implements ChatService {
         conversationParticipantRepository.save(participant);
     }
 
+    /**
+     * [BF-09] Tìm kiếm danh sách người dùng để kết nối trò chuyện.
+     * 
+     * @param keyword Từ khóa tìm kiếm
+     * @return Danh sách UserSummaryResponse
+     */
     @Override
     @Transactional(readOnly = true)
     public List<UserSummaryResponse> listUsers(String keyword) {

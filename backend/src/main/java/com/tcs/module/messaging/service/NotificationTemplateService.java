@@ -35,11 +35,81 @@ import java.util.Optional;
 public interface NotificationTemplateService {
     record RenderedTemplate(String title, String content) {}
 
+    /**
+     * [UC-35] Lấy danh sách toàn bộ các mẫu thông báo hệ thống được sắp xếp theo mã code.
+     * 
+     * @return Danh sách NotificationTemplateResponse đại diện cho tất cả mẫu thông báo
+     */
     List<NotificationTemplateResponse> findAll();
+
+    /**
+     * [UC-35] Tìm kiếm thông tin chi tiết một mẫu thông báo theo ID.
+     * 
+     * @param templateId Định danh mẫu thông báo
+     * @return NotificationTemplateResponse chi tiết mẫu thông báo
+     * @throws com.tcs.exception.ResourceNotFoundException nếu không tìm thấy mẫu
+     */
     NotificationTemplateResponse findById(Long templateId);
+
+    /**
+     * [UC-35] Tạo mới một mẫu thông báo hệ thống.
+     * 
+     * Luồng xử lý:
+     * 1. Chuẩn hóa và kiểm tra tính duy nhất của mã template code.
+     * 2. Xác thực cú pháp placeholder {{variable}} trong tiêu đề và nội dung.
+     * 3. Lưu mẫu mới vào CSDL và ghi nhận vết kiểm toán CREATE_NOTIFICATION_TEMPLATE.
+     * 
+     * @param request DTO dữ liệu tạo mới mẫu thông báo
+     * @return NotificationTemplateResponse thông tin mẫu vừa khởi tạo
+     * @throws IllegalArgumentException nếu mã code đã tồn tại hoặc cú pháp template sai
+     */
     NotificationTemplateResponse create(UpsertNotificationTemplateRequest request);
+
+    /**
+     * [UC-35] Cập nhật nội dung và cấu hình của mẫu thông báo đã có.
+     * 
+     * @param templateId Định danh mẫu cần chỉnh sửa
+     * @param request Dữ liệu cập nhật mẫu
+     * @return NotificationTemplateResponse thông tin mẫu sau khi cập nhật
+     * @throws com.tcs.exception.ResourceNotFoundException nếu không tìm thấy mẫu
+     * @throws IllegalArgumentException nếu mã code bị trùng lặp với mẫu khác
+     */
     NotificationTemplateResponse update(Long templateId, UpsertNotificationTemplateRequest request);
+
+    /**
+     * [UC-35] Vô hiệu hóa một mẫu thông báo (chuyển enabled thành false).
+     * 
+     * @param templateId Định danh mẫu cần tắt
+     * @return NotificationTemplateResponse thông tin mẫu sau khi vô hiệu hóa
+     * @throws com.tcs.exception.ResourceNotFoundException nếu không tìm thấy mẫu
+     * @throws IllegalArgumentException nếu mẫu đã ở trạng thái tắt từ trước
+     */
     NotificationTemplateResponse disable(Long templateId);
+
+    /**
+     * [UC-35] Xem trước kết quả nội suy dữ liệu vào mẫu thông báo kèm danh sách biến chưa giải quyết.
+     * 
+     * Luồng xử lý:
+     * 1. Xác thực cú pháp template của chuỗi tiêu đề và nội dung xem trước.
+     * 2. Nội suy các giá trị từ bản đồ biến số variables vào các vị trí {{placeholder}}.
+     * 3. Thu thập và trả về danh sách các placeholder còn sót lại chưa có giá trị thay thế.
+     * 
+     * @param request DTO yêu cầu xem trước chứa mẫu văn bản và các cặp biến số
+     * @return NotificationTemplatePreviewResponse bản xem trước tiêu đề, nội dung và các biến chưa giải quyết
+     */
     NotificationTemplatePreviewResponse preview(PreviewNotificationTemplateRequest request);
+
+    /**
+     * [UC-35] Nội suy và kết xuất mẫu thông báo đang kích hoạt dựa trên mã nghiệp vụ và bộ biến số.
+     * 
+     * Luồng xử lý:
+     * 1. Tìm mẫu thông báo theo mã code không phân biệt hoa thường.
+     * 2. Kiểm tra nếu mẫu đang được bật (enabled = true).
+     * 3. Điền các giá trị từ variables vào các placeholder {{...}} trong tiêu đề và nội dung.
+     * 
+     * @param code Mã định danh mẫu thông báo nghiệp vụ (ví dụ: PENALTY_ISSUED, CONTRACT_SIGNED)
+     * @param variables Bản đồ tên biến và giá trị cần nội suy
+     * @return Optional chứa RenderedTemplate (title, content) nếu mẫu hợp lệ và đang bật; Optional.empty() nếu không tìm thấy hoặc bị vô hiệu hóa
+     */
     Optional<RenderedTemplate> renderEnabled(String code, Map<String, ?> variables);
 }

@@ -66,6 +66,9 @@ export default function PlatformFeeSettingsPage() {
   const [savingCenterFee, setSavingCenterFee] = useState(false);
   const [modalError, setModalError] = useState('');
 
+  /**
+   * [UC-46, UC-57] Tải tỷ lệ phí dịch vụ mặc định toàn sàn từ tham số hệ thống.
+   */
   const loadParameter = async () => {
     setStatus('loading');
     setErrorMessage('');
@@ -83,6 +86,9 @@ export default function PlatformFeeSettingsPage() {
     }
   };
 
+  /**
+   * [UC-46] Tải danh sách cấu hình tỷ lệ phí thỏa thuận riêng của các Trung tâm gia sư.
+   */
   const loadCenterFees = async () => {
     setLoadingCenters(true);
     setCenterError('');
@@ -118,6 +124,9 @@ export default function PlatformFeeSettingsPage() {
     };
   }, [feePercent]);
 
+  /**
+   * [UC-46, UC-57] Lưu cập nhật tỷ lệ phí sàn mặc định toàn hệ thống.
+   */
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setMessage('');
@@ -174,7 +183,9 @@ export default function PlatformFeeSettingsPage() {
     }
   };
 
-  // Center Fee Handlers
+  /**
+   * [UC-46] Mở modal điều chỉnh tỷ lệ phí riêng cho một Trung tâm gia sư cụ thể.
+   */
   const handleOpenEditModal = (center: CenterFeeConfigApiResponse) => {
     setEditingCenter(center);
     const initialPercent = center.customFeeRate != null
@@ -185,11 +196,17 @@ export default function PlatformFeeSettingsPage() {
     setModalError('');
   };
 
+  /**
+   * [UC-46] Đóng modal điều chỉnh tỷ lệ phí trung tâm gia sư.
+   */
   const handleCloseModal = () => {
     setEditingCenter(null);
     setModalError('');
   };
 
+  /**
+   * [UC-46] Xác thực và lưu tỷ lệ phí riêng đã thỏa thuận cho Trung tâm gia sư.
+   */
   const handleSaveCenterFee = async (e: FormEvent) => {
     e.preventDefault();
     if (!editingCenter) return;
@@ -235,6 +252,9 @@ export default function PlatformFeeSettingsPage() {
     }
   };
 
+  /**
+   * [UC-46] Khôi phục mức phí của Trung tâm gia sư về mức phí chuẩn mặc định của toàn sàn.
+   */
   const handleResetCenterFee = async (center: CenterFeeConfigApiResponse) => {
     if (!window.confirm(`Bạn có chắc chắn muốn khôi phục mức phí của "${center.companyName}" về mức mặc định toàn sàn (${toPercent(center.defaultPlatformFeeRate)}%)?`)) {
       return;

@@ -186,12 +186,24 @@ public class ContractServiceImpl implements ContractService {
 
     // ─── VIEW CONTRACT (4.2) ──────────────────────────────────────────────────
 
+    /**
+     * [UC-44] Lấy thông tin hợp đồng theo ID (chuyển tiếp tới getMyContract để kiểm tra quyền).
+     * 
+     * @param contractId ID hợp đồng
+     * @return ContractResponse chi tiết hợp đồng
+     */
     @Override
     @Transactional(readOnly = true)
     public ContractResponse getContract(Long contractId) {
         return getMyContract(contractId);
     }
 
+    /**
+     * [UC-44] Xem chi tiết hợp đồng điện tử kèm kiểm tra quyền truy cập của người dùng hiện tại.
+     * 
+     * @param contractId ID hợp đồng
+     * @return ContractResponse chi tiết hợp đồng
+     */
     @Override
     @Transactional(readOnly = true)
     public ContractResponse getMyContract(Long contractId) {
@@ -200,6 +212,11 @@ public class ContractServiceImpl implements ContractService {
         return toContractResponse(contract);
     }
 
+    /**
+     * [UC-44] Lấy toàn bộ danh sách hợp đồng điện tử mà người dùng tham gia (Phụ huynh, Gia sư, Trung tâm).
+     * 
+     * @return Danh sách ContractResponse
+     */
     @Override
     @Transactional
     public List<ContractResponse> getMyContracts() {
@@ -317,6 +334,12 @@ public class ContractServiceImpl implements ContractService {
         return first.isAfter(second) ? first : second;
     }
 
+    /**
+     * [UC-44] Lấy danh sách chữ ký số và tiến trình ký kết của hợp đồng.
+     * 
+     * @param contractId ID hợp đồng
+     * @return ContractSignatureListResponse danh sách ô ký
+     */
     @Override
     @Transactional(readOnly = true)
     public ContractSignatureListResponse getSignatures(Long contractId) {
@@ -392,6 +415,17 @@ public class ContractServiceImpl implements ContractService {
                 .orElse(null);
     }
 
+    /**
+     * [UC-44] Khởi tạo mã OTP xác thực ký hợp đồng và gửi qua email cho người ký.
+     * 
+     * Luồng xử lý:
+     * 1. Xác thực người ký không phải vị thành niên và đã hoàn thành CCCD.
+     * 2. Kiểm tra trạng thái hợp đồng đang chờ ký (PENDING/DRAFT) và ô ký chưa ký.
+     * 3. Phát hành mã OTP 6 chữ số qua OtpService và gửi email.
+     * 
+     * @param contractId ID hợp đồng
+     * @return Map chứa thông tin kết quả gửi OTP
+     */
     @Override
     @Transactional
     public Map<String, Object> sendOtp(Long contractId) {
@@ -544,6 +578,13 @@ public class ContractServiceImpl implements ContractService {
         return toContractResponse(contract);
     }
 
+    /**
+     * [UC-44] Ký hợp đồng điện tử qua DTO SignContractRequest.
+     * 
+     * @param contractId ID hợp đồng
+     * @param request DTO chứa mã OTP
+     * @return ContractResponse thông tin hợp đồng sau khi ký
+     */
     @Override
     @Transactional
     public ContractResponse signContract(Long contractId, SignContractRequest request) {
@@ -571,6 +612,13 @@ public class ContractServiceImpl implements ContractService {
         }
     }
 
+    /**
+     * [UC-44] Lưu thông tin tài khoản ngân hàng nhận tiền hoàn cho Phụ huynh sau khi ký hợp đồng.
+     * 
+     * @param contractId ID hợp đồng
+     * @param request Dữ liệu tài khoản ngân hàng
+     * @return ContractResponse chi tiết hợp đồng
+     */
     @Override
     @Transactional
     public ContractResponse saveRefundPayoutInfo(Long contractId, SaveRefundPayoutRequest request) {
@@ -612,6 +660,13 @@ public class ContractServiceImpl implements ContractService {
         return toContractResponse(contract);
     }
 
+    /**
+     * [UC-44] Ký hợp đồng với mã OTP và định danh người ký được truyền trực tiếp.
+     * 
+     * @param contractId ID hợp đồng
+     * @param otp Mã OTP
+     * @param signerUserId ID người ký
+     */
     @Override
     @Transactional
     public void sign(Long contractId, String otp, Long signerUserId) {
@@ -623,6 +678,12 @@ public class ContractServiceImpl implements ContractService {
         signWithOtp(contractId, request);
     }
 
+    /**
+     * [UC-44] Kiểm tra hợp đồng đã ký kết đầy đủ chữ ký yêu cầu hay chưa.
+     * 
+     * @param contractId ID hợp đồng
+     * @return true nếu đã ký đủ các bên
+     */
     @Override
     @Transactional(readOnly = true)
     public boolean isFullySigned(Long contractId) {
@@ -630,6 +691,12 @@ public class ContractServiceImpl implements ContractService {
         return contractSignatureRepository.countSignedByContractId(contractId) >= getRequiredSignatureCount(contract);
     }
 
+    /**
+     * [UC-44] Tra cứu trạng thái chữ ký số của các bên trong hợp đồng.
+     * 
+     * @param contractId ID hợp đồng
+     * @return SignatureStatusResponse chi tiết trạng thái ký
+     */
     @Override
     @Transactional(readOnly = true)
     public SignatureStatusResponse getSignatureStatus(Long contractId) {
@@ -663,12 +730,24 @@ public class ContractServiceImpl implements ContractService {
                 .build();
     }
 
+    /**
+     * [UC-44] Tạo hợp đồng cho phân công lớp cá nhân và trả về DTO ContractResponse.
+     * 
+     * @param assignmentId ID phân công
+     * @return ContractResponse
+     */
     @Override
     @Transactional
     public ContractResponse generateContract(Long assignmentId) {
         return getMyContract(generateForAssignment(assignmentId).getContractId());
     }
 
+    /**
+     * [UC-44] Khởi tạo thực thể hợp đồng điện tử từ phân công lớp cá nhân.
+     * 
+     * @param assignmentId ID phân công
+     * @return Thực thể Contract được lưu CSDL
+     */
     @Override
     @Transactional
     public Contract generateForAssignment(Long assignmentId) {
@@ -696,6 +775,20 @@ public class ContractServiceImpl implements ContractService {
         return contract;
     }
 
+    /**
+     * [BF-03] Tạo thỏa thuận hợp tác Trung tâm - Gia sư từ đơn ứng tuyển đã duyệt.
+     * 
+     * Luồng xử lý:
+     * 1. Xác thực đơn ứng tuyển tuyển dụng tồn tại và chưa có thỏa thuận hợp tác.
+     * 2. Lấy điều khoản thỏa thuận (ưu tiên văn bản chỉnh sửa -> mẫu -> mặc định).
+     * 3. Điền các placeholder thông tin hai bên và đóng băng điều khoản.
+     * 4. Trung tâm ký sẵn; tạo ô ký chờ gia sư hoàn tất ký số trong 48 giờ.
+     * 
+     * @param recruitmentApplicationId ID đơn ứng tuyển
+     * @param templateId ID mẫu hợp đồng (tùy chọn)
+     * @param editedTerms Điều khoản chỉnh sửa (tùy chọn)
+     * @return ContractResponse thỏa thuận hợp tác đã khởi tạo
+     */
     // ─── GENERATE COOPERATION CONTRACT (BF-03 bước 7) ───────────────────────
     @Override
     @Transactional
@@ -773,6 +866,12 @@ public class ContractServiceImpl implements ContractService {
         recruitmentApplicationRepository.save(app);
     }
 
+    /**
+     * [BF-04] Tạo hợp đồng đào tạo theo học viên khi ghi danh vào lớp trung tâm.
+     * 
+     * @param classStudentId ID học viên ghi danh
+     * @return ContractResponse thông tin hợp đồng đào tạo
+     */
     // ─── GENERATE STUDENT CONTRACT (BF-04 bước 7) ───────────────────────────
     @Override
     @Transactional
@@ -1059,6 +1158,12 @@ public class ContractServiceImpl implements ContractService {
         contractSignatureRepository.save(sig);
     }
 
+    /**
+     * [BF-04] Khởi tạo thực thể hợp đồng từ bản ghi ghi danh lớp học trung tâm.
+     * 
+     * @param classStudentId ID học viên ghi danh
+     * @return Thực thể Contract đã khởi tạo
+     */
     // ─── PRIVATE HELPERS ─────────────────────────────────────────────────────
     @Override
     @Transactional
@@ -2145,6 +2250,19 @@ public class ContractServiceImpl implements ContractService {
         return email.substring(0, 2) + "***" + email.substring(at);
     }
 
+    /**
+     * [BF-07] [UC-44] Phụ huynh gửi đánh giá chất lượng dạy học của gia sư sau các buổi học.
+     * 
+     * Luồng xử lý:
+     * 1. Xác thực quyền CLIENT của người gọi.
+     * 2. Kiểm tra số buổi học đã diễn ra qua danh sách điểm danh; đảm bảo chưa vượt quota đánh giá.
+     * 3. Tính điểm trung bình tổng thể và lưu thực thể Review.
+     * 4. Tính toán lại điểm số uy tín của Gia sư (recomputeTutorReputation).
+     * 5. Phát sự kiện ClientReviewedClassEvent để marketplace kiểm tra đóng lớp.
+     * 
+     * @param request DTO đánh giá
+     * @return ReviewResponse thông tin đánh giá đã lưu
+     */
     // ===== Reviews & Reputation =====
     @Override
     @Transactional
@@ -2209,6 +2327,12 @@ public class ContractServiceImpl implements ContractService {
         return toResponse(saved);
     }
 
+    /**
+     * [BF-07] Kiểm tra xem khách đã gửi đánh giá cho lớp học này hay chưa.
+     * 
+     * @param classId ID lớp học
+     * @return true nếu đã có đánh giá
+     */
     @Override
     @Transactional(readOnly = true)
     public boolean hasClientReviewedClass(Long classId) {
@@ -2216,6 +2340,13 @@ public class ContractServiceImpl implements ContractService {
                 classId, ReviewType.CLIENT_TO_TUTOR);
     }
 
+    /**
+     * [BF-07] Gia sư gửi phản hồi đối với đánh giá nhận được từ phụ huynh.
+     * 
+     * @param reviewId ID đánh giá
+     * @param request Dữ liệu phản hồi
+     * @return ReviewResponse thông tin đánh giá sau khi lưu phản hồi
+     */
     @Override
     @Transactional
     public ReviewResponse replyToReview(Long reviewId, ReplyReviewRequest request) {
@@ -2242,6 +2373,13 @@ public class ContractServiceImpl implements ContractService {
         return toResponse(saved);
     }
 
+    /**
+     * [BF-07] Phụ huynh chỉnh sửa lại đánh giá đã gửi trước đó.
+     * 
+     * @param reviewId ID đánh giá
+     * @param request Dữ liệu đánh giá cập nhật
+     * @return ReviewResponse
+     */
     @Override
     @Transactional
     public ReviewResponse updateReview(Long reviewId, CreateReviewRequest request) {
@@ -2281,6 +2419,12 @@ public class ContractServiceImpl implements ContractService {
         return toResponse(saved);
     }
 
+    /**
+     * [BF-07] Lấy điểm số uy tín và danh sách đánh giá công khai của gia sư theo tutorId.
+     * 
+     * @param tutorId ID gia sư
+     * @return TutorReputationResponse
+     */
     @Override
     @Transactional(readOnly = true)
     public TutorReputationResponse getTutorReputation(Long tutorId) {
@@ -2290,6 +2434,11 @@ public class ContractServiceImpl implements ContractService {
         return buildReputation(tutor);
     }
 
+    /**
+     * [BF-07] Gia sư tra cứu bảng điểm uy tín và thống kê xếp hạng của chính mình.
+     * 
+     * @return TutorReputationResponse
+     */
     @Override
     @Transactional(readOnly = true)
     public TutorReputationResponse getMyTutorReputation() {
@@ -2414,6 +2563,11 @@ public class ContractServiceImpl implements ContractService {
                 .toList();
     }
 
+    /**
+     * [BF-07] Phụ huynh lấy danh sách các phân công lớp học có thể đánh giá hoặc đã đánh giá.
+     * 
+     * @return Danh sách ReviewableAssignmentResponse
+     */
     @Override
     @Transactional(readOnly = true)
     public List<ReviewableAssignmentResponse> getMyReviewableAssignments() {
@@ -2575,6 +2729,11 @@ public class ContractServiceImpl implements ContractService {
         }
     }
 
+    /**
+     * [BF-07] Tính toán lại điểm số uy tín của Gia sư theo ID người dùng.
+     * 
+     * @param tutorUserId ID người dùng của gia sư
+     */
     @Override
     @Transactional
     public void recomputeReputationByTutorUser(Long tutorUserId) {

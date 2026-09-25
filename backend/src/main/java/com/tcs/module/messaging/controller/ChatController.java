@@ -61,38 +61,82 @@ public class ChatController {
 
     private final ChatService chatService;
 
+    /**
+     * [UC-33]: Lấy danh sách toàn bộ các cuộc trò chuyện (1-1 và nhóm) của người dùng hiện tại.
+     * 
+     * @return Danh sách cuộc hội thoại {@link ConversationResponse} kèm tin nhắn mới nhất và số tin chưa đọc
+     */
     @GetMapping("/conversations")
     public List<ConversationResponse> getMyConversations() {
         return chatService.getMyConversations();
     }
 
+    /**
+     * [UC-33]: Mở cuộc trò chuyện trực tiếp 1-1 với một người dùng đích (tự động tạo mới nếu chưa tồn tại).
+     * 
+     * @param request Dữ liệu yêu cầu chứa targetUserId {@link StartConversationRequest}
+     * @return {@link ConversationResponse} Thông tin phòng chat trực tiếp giữa 2 người
+     */
     @PostMapping("/conversations")
     public ConversationResponse startOrGetConversation(@RequestBody StartConversationRequest request) {
         return chatService.startOrGetConversation(request.getTargetUserId());
     }
 
+    /**
+     * [UC-34]: Tạo một nhóm chat mới với danh sách thành viên ban đầu.
+     * 
+     * @param request Dữ liệu nhóm gồm tên nhóm và danh sách ID thành viên {@link CreateGroupRequest}
+     * @return {@link ConversationResponse} Thông tin nhóm chat vừa khởi tạo
+     */
     @PostMapping("/groups")
     public ConversationResponse createGroup(@RequestBody CreateGroupRequest request) {
         return chatService.createGroup(request.getName(), request.getMemberIds());
     }
 
+    /**
+     * [UC-34]: Lấy danh sách thành viên hiện tại của một nhóm chat.
+     * 
+     * @param conversationId ID phòng chat nhóm
+     * @return Danh sách thành viên {@link GroupMemberResponse} kèm vai trò trong nhóm (Owner, Member)
+     */
     @GetMapping("/groups/{id}/members")
     public List<GroupMemberResponse> getGroupMembers(@PathVariable("id") Long conversationId) {
         return chatService.getGroupMembers(conversationId);
     }
 
+    /**
+     * [UC-34]: Đổi tên hiển thị của phòng chat nhóm.
+     * 
+     * @param conversationId ID phòng chat nhóm
+     * @param request Tên mới của nhóm {@link UpdateGroupRequest}
+     * @return {@link ConversationResponse} Thông tin nhóm sau khi cập nhật tên
+     */
     @PatchMapping("/groups/{id}")
     public ConversationResponse renameGroup(
             @PathVariable("id") Long conversationId, @RequestBody UpdateGroupRequest request) {
         return chatService.renameGroup(conversationId, request.getName());
     }
 
+    /**
+     * [UC-34]: Thêm một hoặc nhiều thành viên mới vào phòng chat nhóm.
+     * 
+     * @param conversationId ID phòng chat nhóm
+     * @param request Danh sách ID người dùng cần thêm vào nhóm {@link AddGroupMembersRequest}
+     * @return {@link ConversationResponse} Thông tin nhóm sau khi bổ sung thành viên
+     */
     @PostMapping("/groups/{id}/members")
     public ConversationResponse addGroupMembers(
             @PathVariable("id") Long conversationId, @RequestBody AddGroupMembersRequest request) {
         return chatService.addGroupMembers(conversationId, request.getMemberIds());
     }
 
+    /**
+     * [UC-34]: Xóa một thành viên ra khỏi phòng chat nhóm (chỉ trưởng nhóm mới có quyền thực hiện).
+     * 
+     * @param conversationId ID phòng chat nhóm
+     * @param userId ID thành viên bị mời ra khỏi nhóm
+     * @return {@link ResponseEntity} Trạng thái 204 No Content
+     */
     @DeleteMapping("/groups/{id}/members/{userId}")
     public ResponseEntity<Void> removeGroupMember(
             @PathVariable("id") Long conversationId, @PathVariable Long userId) {
@@ -100,18 +144,38 @@ public class ChatController {
         return ResponseEntity.noContent().build();
     }
 
+    /**
+     * [UC-34]: Chuyển quyền trưởng nhóm (Group Owner) cho một thành viên khác trong nhóm.
+     * 
+     * @param conversationId ID phòng chat nhóm
+     * @param request Thông tin ID chủ sở hữu mới {@link TransferGroupOwnerRequest}
+     * @return {@link ConversationResponse} Thông tin nhóm sau khi chuyển quyền sở hữu
+     */
     @PatchMapping("/groups/{id}/owner")
     public ConversationResponse transferGroupOwner(
             @PathVariable("id") Long conversationId, @RequestBody TransferGroupOwnerRequest request) {
         return chatService.transferGroupOwner(conversationId, request.getOwnerUserId());
     }
 
+    /**
+     * [UC-34]: Thành viên tự rời khỏi phòng chat nhóm.
+     * 
+     * @param conversationId ID phòng chat nhóm
+     * @return {@link ResponseEntity} Trạng thái 204 No Content
+     */
     @DeleteMapping("/groups/{id}/members/me")
     public ResponseEntity<Void> leaveGroup(@PathVariable("id") Long conversationId) {
         chatService.leaveGroup(conversationId);
         return ResponseEntity.noContent().build();
     }
 
+    /**
+     * [UC-33]: Mở hoặc tạo hội thoại gắn liền với một ngữ cảnh nghiệp vụ cụ thể (Lớp học hoặc Hợp đồng).
+     * 
+     * @param contextType Loại ngữ cảnh (CLASS, CONTRACT, RECRUITMENT)
+     * @param contextId ID định danh của đối tượng nghiệp vụ tương ứng
+     * @return {@link ConversationResponse} Cuộc trò chuyện theo ngữ cảnh
+     */
     @GetMapping("/context/{contextType}/{contextId}")
     public ConversationResponse getOrCreateContextConversation(
             @PathVariable("contextType") String contextType,
@@ -119,6 +183,14 @@ public class ChatController {
         return chatService.getOrCreateContextConversation(contextType, contextId);
     }
 
+    /**
+     * [UC-33]: Tải lịch sử tin nhắn của một cuộc hội thoại theo cơ chế phân trang.
+     * 
+     * @param conversationId ID cuộc trò chuyện
+     * @param page Số trang lịch sử tin nhắn (mặc định 0)
+     * @param size Số tin nhắn mỗi trang (mặc định 30)
+     * @return {@link Page} Danh sách tin nhắn {@link MessageResponse} phân trang
+     */
     @GetMapping("/conversations/{id}/messages")
     public Page<MessageResponse> getMessages(
             @PathVariable("id") Long conversationId,
@@ -127,18 +199,37 @@ public class ChatController {
         return chatService.getMessages(conversationId, page, size);
     }
 
+    /**
+     * [UC-33]: Gửi một tin nhắn văn bản mới vào phòng chat thông qua REST API.
+     * 
+     * @param conversationId ID cuộc trò chuyện nhận tin
+     * @param request Nội dung tin nhắn và tệp đính kèm nếu có {@link SendMessageRequest}
+     * @return {@link MessageResponse} Tin nhắn vừa được lưu thành công
+     */
     @PostMapping("/conversations/{id}/messages")
     public MessageResponse sendMessageViaRest(@PathVariable("id") Long conversationId, @RequestBody SendMessageRequest request) {
         request.setConversationId(conversationId);
         return chatService.sendMessage(request);
     }
 
+    /**
+     * [UC-33]: Đánh dấu đã đọc tất cả tin nhắn trong cuộc trò chuyện đến thời điểm hiện tại.
+     * 
+     * @param conversationId ID cuộc trò chuyện
+     * @return Map chứa thông báo xác nhận thành công
+     */
     @PostMapping("/conversations/{id}/read")
     public Map<String, String> markAsRead(@PathVariable("id") Long conversationId) {
         chatService.markAsRead(conversationId);
         return Map.of("message", "Đã đánh dấu đã đọc");
     }
 
+    /**
+     * [UC-33]: Tìm kiếm danh sách người dùng trong hệ thống để bắt đầu cuộc trò chuyện mới.
+     * 
+     * @param keyword Từ khóa tìm kiếm theo tên hoặc email
+     * @return Danh sách người dùng rút gọn {@link UserSummaryResponse}
+     */
     @GetMapping("/users")
     public List<UserSummaryResponse> listUsers(@RequestParam(required = false) String keyword) {
         return chatService.listUsers(keyword);

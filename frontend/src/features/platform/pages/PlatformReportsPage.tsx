@@ -62,9 +62,7 @@ const CLASS_ISSUE_ACTION_OPTIONS: { value: ClassIssueResolutionAction; label: st
   { value: 'REQUEST_MORE_INFORMATION', label: 'Yêu cầu bổ sung thông tin', desc: 'Yêu cầu các bên gửi thêm chứng cứ hoặc làm rõ sự việc' },
   { value: 'CONTINUE_CLASS', label: 'Tiếp tục lớp học', desc: 'Sự cố đã được khắc phục, cho phép lớp tiếp tục theo lộ trình' },
   { value: 'RESCHEDULE', label: 'Cho phép dời lịch / bù buổi', desc: 'Chấp thuận đề xuất dời lịch hoặc bù buổi học bị gián đoạn' },
-  { value: 'REPLACE_TUTOR', label: 'Đổi gia sư phụ trách', desc: 'Yêu cầu trung tâm hoặc hệ thống phân công gia sư khác' },
   { value: 'ESCALATE_TO_DISPUTE', label: 'Chuyển thành tranh chấp Escrow', desc: 'Chuyển sang bộ phận xử lý tài chính hoàn tiền ký quỹ' },
-  { value: 'TERMINATE_CLASS', label: 'Chấm dứt lớp học trước hạn', desc: 'Dừng lớp và quyết toán chi phí các buổi đã hoàn thành' },
   { value: 'CLOSE_NO_ACTION', label: 'Đóng báo cáo (Bác bỏ)', desc: 'Báo cáo không có căn cứ hoặc các bên đã tự giải quyết' },
 ];
 

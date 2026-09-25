@@ -81,6 +81,9 @@ export default function PlatformUsersPage() {
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
+  /**
+   * [UC-07] Xử lý form tạo tài khoản người dùng mới trực tiếp bởi Quản trị viên sàn.
+   */
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreateError(null);

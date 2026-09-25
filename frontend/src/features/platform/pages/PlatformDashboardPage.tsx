@@ -38,6 +38,9 @@ export default function PlatformDashboardPage() {
 
   const [lastUpdated, setLastUpdated] = useState<string>(() => new Date().toLocaleTimeString('vi-VN'));
 
+  /**
+   * [UC-56] Áp dụng bộ lọc mốc thời gian và độ phân giải đồ thị (Ngày, Tuần, Tháng) trên Dashboard.
+   */
   const applyTimelineFilter = (newFrom: string, newTo: string, newGranularity?: string) => {
     setFrom(newFrom);
     setTo(newTo);
@@ -58,6 +61,9 @@ export default function PlatformDashboardPage() {
     applyTimelineFilter(fromDate.toISOString().slice(0, 10), toDate.toISOString().slice(0, 10));
   };
 
+  /**
+   * [UC-56] Xử lý sự kiện thay đổi khoảng thời gian từ thanh công cụ lọc thống kê Admin.
+   */
   const handleTimeFilterChange = (val: TimeFilterValue) => {
     setFrom(val.from);
     setTo(val.to);
@@ -65,6 +71,9 @@ export default function PlatformDashboardPage() {
     setLastUpdated(new Date().toLocaleTimeString('vi-VN'));
   };
 
+  /**
+   * [UC-56] Làm mới dữ liệu các chỉ số vận hành và hàng đợi trực ban trên Dashboard.
+   */
   const handleReload = () => {
     setLastUpdated(new Date().toLocaleTimeString('vi-VN'));
     reload();

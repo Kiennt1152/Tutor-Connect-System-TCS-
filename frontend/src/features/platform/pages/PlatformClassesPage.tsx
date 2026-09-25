@@ -151,6 +151,9 @@ export default function PlatformClassesPage() {
   const [detailData, setDetailData] = useState<any | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
+  /**
+   * [BF-10, UC-21] Tải danh sách lớp học toàn sàn có áp dụng bộ lọc trạng thái.
+   */
   const fetchClasses = async () => {
     try {
       setLoading(true);
@@ -164,6 +167,9 @@ export default function PlatformClassesPage() {
     }
   };
 
+  /**
+   * [UC-21] Tải lịch học và điểm danh toàn sàn theo ngày được chọn để quản trị viên giám sát.
+   */
   const loadSchedule = useCallback(async (targetDate: string) => {
     try {
       setScheduleLoading(true);
@@ -188,10 +194,16 @@ export default function PlatformClassesPage() {
     }
   }, [activeTab, scheduleDate, loadSchedule]);
 
+  /**
+   * [UC-21] Đóng/mở chi tiết lịch học của một lớp học trên giao diện giám sát ngày.
+   */
   const toggleSchedule = (classId: number) => {
     setExpandedSchedule((prev) => ({ ...prev, [classId]: !prev[classId] }));
   };
 
+  /**
+   * [BF-10] Mở modal xem thông tin chi tiết lớp học kèm hợp đồng và lịch sử điểm danh.
+   */
   const handleOpenDetail = async (classId: number, baseItem?: ClassItem) => {
     if (baseItem) {
       setSelectedClass(baseItem);

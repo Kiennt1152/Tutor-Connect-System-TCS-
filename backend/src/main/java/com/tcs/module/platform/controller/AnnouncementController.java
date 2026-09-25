@@ -48,27 +48,56 @@ public class AnnouncementController {
 
     private final AnnouncementService announcementService;
 
+    /**
+     * [UC-64]: Truy xuất toàn bộ danh sách các bản tin thông báo quản trị viên đã cấu hình.
+     * 
+     * @return Danh sách các bản tin thông báo {@link AnnouncementResponse}
+     */
     @GetMapping
     public List<AnnouncementResponse> getAnnouncements() {
         return announcementService.getAnnouncements();
     }
 
+    /**
+     * [UC-64]: Xem chi tiết một bản tin thông báo theo mã định danh.
+     * 
+     * @param announcementId ID bản tin thông báo
+     * @return {@link AnnouncementResponse} Chi tiết tiêu đề, nội dung, đối tượng hướng tới và thời hạn
+     */
     @GetMapping("/{announcementId}")
     public AnnouncementResponse getAnnouncement(@PathVariable Long announcementId) {
         return announcementService.getAnnouncement(announcementId);
     }
 
+    /**
+     * [UC-64]: Tạo mới một bản tin thông báo phát thanh trên toàn hệ thống.
+     * 
+     * @param request Dữ liệu thông báo mới {@link UpsertAnnouncementRequest}
+     * @return {@link AnnouncementResponse} Bản tin thông báo vừa được tạo
+     */
     @PostMapping
     public AnnouncementResponse createAnnouncement(@Valid @RequestBody UpsertAnnouncementRequest request) {
         return announcementService.createAnnouncement(request);
     }
 
+    /**
+     * [UC-64]: Cập nhật nội dung, liên kết đính kèm hoặc thay đổi trạng thái kích hoạt của bản tin.
+     * 
+     * @param announcementId ID bản tin cần chỉnh sửa
+     * @param request Dữ liệu cập nhật {@link UpsertAnnouncementRequest}
+     * @return {@link AnnouncementResponse} Bản tin sau khi cập nhật
+     */
     @PatchMapping("/{announcementId}")
     public AnnouncementResponse updateAnnouncement(
             @PathVariable Long announcementId, @Valid @RequestBody UpsertAnnouncementRequest request) {
         return announcementService.updateAnnouncement(announcementId, request);
     }
 
+    /**
+     * [UC-64]: Xóa vĩnh viễn một bản tin thông báo khỏi hệ thống.
+     * 
+     * @param announcementId ID bản tin cần xóa
+     */
     @DeleteMapping("/{announcementId}")
     public void deleteAnnouncement(@PathVariable Long announcementId) {
         announcementService.deleteAnnouncement(announcementId);

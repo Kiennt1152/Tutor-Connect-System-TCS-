@@ -113,8 +113,14 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
     private final PlatformAdminRepository platformAdminRepository;
 
     /**
-     * Tác vụ tự động sinh báo cáo tổng kết hàng ngày và ghi nhận vào Audit Log.
-     *     * @return số lượng báo cáo được tạo (1 nếu thành công)
+     * [UC-41] Hiện thực tác vụ nền tự động tổng hợp báo cáo chỉ số tài chính định kỳ hàng ngày.
+     * 
+     * Luồng xử lý:
+     * 1. Xác định mốc thời gian ngày hôm qua.
+     * 2. Gọi getSummary để tính toán số liệu tổng thể người dùng, lớp học, doanh thu và tiền bảo chứng.
+     * 3. Ghi nhận nhật ký kiểm toán SCHEDULED_REPORT_GENERATION lưu lại ảnh chụp số liệu.
+     * 
+     * @return Số lượng báo cáo đã sinh thành công (1)
      */
     @Override
     @Transactional
@@ -131,6 +137,20 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
         return 1;
     }
 
+    /**
+     * [UC-41] [UC-58] Tổng hợp các chỉ số tài chính, doanh thu sàn và dòng tiền luân chuyển toàn hệ thống.
+     * 
+     * Luồng xử lý:
+     * 1. Xác định khung thời gian thống kê từ tham số from và to.
+     * 2. Đếm số lượng người dùng mới, lớp học đang mở, đang diễn ra và hoàn thành.
+     * 3. Tính toán các tổng giao dịch thanh toán: Nạp tiền, Rút tiền, Tiền ký quỹ, Giải ngân, Hoàn tiền.
+     * 4. Tính toán doanh thu phí sàn từ giao dịch thực tế hoặc theo tham số PLATFORM_FEE_RATE.
+     * 5. Tổng hợp xu hướng số liệu 6 tháng gần nhất vào danh sách MonthlyMetricResponse.
+     * 
+     * @param from Ngày bắt đầu
+     * @param to Ngày kết thúc
+     * @return AnalyticsSummaryResponse chứa bảng tổng hợp tài chính sàn
+     */
     @Override
     public AnalyticsSummaryResponse getSummary(LocalDate from, LocalDate to) {
         LocalDateTime fromDt = from != null ? from.atStartOfDay() : null;
@@ -354,6 +374,20 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
     // LUỒNG 12: BÁO CÁO TÀI CHÍNH ĐA CHIỀU & XUẤT DỮ LIỆU CSV AN TOÀN (UC-41, UC-43)
     // =========================================================================
 
+    /**
+     * [UC-41] Xuất báo cáo tài chính kế toán ra tệp CSV kèm UTF-8 BOM, an toàn chống OOM và Formula Injection.
+     * 
+     * Luồng xử lý:
+     * 1. Gắn UTF-8 BOM Header (﻿) đảm bảo mở đúng Tiếng Việt có dấu trên Excel.
+     * 2. Giới hạn khung thời gian mặc định và tối đa 10,000 dòng để tránh tràn bộ nhớ máy chủ.
+     * 3. Thoát hiểm các ký tự nhạy cảm (=, +, -, @) để ngăn chặn mã độc CSV Formula Injection.
+     * 4. Xuất các cột dữ liệu theo đúng phân loại yêu cầu (SUMMARY, LEDGER, CENTERS, TUTORS, CLIENTS).
+     * 
+     * @param type Loại báo cáo
+     * @param from Ngày bắt đầu
+     * @param to Ngày kết thúc
+     * @return Mảng byte chứa nội dung tệp CSV
+     */
     // Luồng 12 - Xuất dữ liệu CSV an toàn chống OOM và mã độc Formula Injection
     @Override
     public byte[] exportCsv(String type, LocalDate from, LocalDate to) {
@@ -604,6 +638,13 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
         return isPlatformFeeTransaction(transaction) ? "PLATFORM_FEE" : transaction.getType().name();
     }
 
+    /**
+     * [UC-43] Tổng hợp dữ liệu phân tích tài chính của tất cả các Trung tâm gia sư.
+     * 
+     * @param from Ngày bắt đầu
+     * @param to Ngày kết thúc
+     * @return Danh sách CenterFinancialAnalyticsResponse
+     */
     @Override
     public List<CenterFinancialAnalyticsResponse> getCenterAnalytics(LocalDate from, LocalDate to) {
         BigDecimal platformFeeRate = getPlatformFeeRate();
@@ -617,6 +658,14 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
         return result;
     }
 
+    /**
+     * [UC-43] Chi tiết phân tích tài chính của một Trung tâm gia sư cụ thể.
+     * 
+     * @param centerId ID trung tâm
+     * @param from Ngày bắt đầu
+     * @param to Ngày kết thúc
+     * @return CenterFinancialAnalyticsResponse thông tin tài chính trung tâm
+     */
     @Override
     public CenterFinancialAnalyticsResponse getCenterAnalyticsByCenterId(Long centerId, LocalDate from, LocalDate to) {
         TutorCenter center = tutorCenterRepository.findById(centerId)
@@ -711,6 +760,13 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
                 .build();
     }
 
+    /**
+     * [UC-41] Báo cáo phân tích tài chính và thu nhập của toàn bộ Gia sư.
+     * 
+     * @param from Ngày bắt đầu
+     * @param to Ngày kết thúc
+     * @return Danh sách TutorFinancialAnalyticsResponse
+     */
     @Override
     public List<TutorFinancialAnalyticsResponse> getTutorAnalytics(LocalDate from, LocalDate to) {
         List<Tutor> tutors = tutorRepository.findAll();
@@ -811,6 +867,13 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
         return result;
     }
 
+    /**
+     * [UC-41] Báo cáo phân tích chi tiêu học phí của toàn bộ Phụ huynh / Khách hàng.
+     * 
+     * @param from Ngày bắt đầu
+     * @param to Ngày kết thúc
+     * @return Danh sách ClientFinancialAnalyticsResponse
+     */
     @Override
     public List<ClientFinancialAnalyticsResponse> getClientAnalytics(LocalDate from, LocalDate to) {
         List<Client> clients = clientRepository.findAll();
@@ -888,6 +951,17 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
         return result;
     }
 
+    /**
+     * [UC-58] Sổ cái tài chính đa chiều phân trang cho Quản trị viên đối soát từng dòng tiền luân chuyển.
+     * 
+     * @param role Lọc theo vai trò đối tượng
+     * @param direction Lọc chiều dòng tiền (INFLOW/OUTFLOW)
+     * @param search Từ khóa tìm kiếm
+     * @param from Ngày bắt đầu
+     * @param to Ngày kết thúc
+     * @param pageable Tham số phân trang
+     * @return Trang kết quả FinancialLedgerItemResponse
+     */
     @Override
     public Page<FinancialLedgerItemResponse> getFinancialLedger(
             String role, String direction, String search, LocalDate from, LocalDate to, Pageable pageable) {

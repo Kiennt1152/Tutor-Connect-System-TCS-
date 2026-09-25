@@ -40,6 +40,20 @@ import org.springframework.transaction.annotation.Transactional;
 public class PenaltyAccessServiceImpl implements PenaltyAccessService {
     private final UserPenaltyRepository repository;
 
+    /**
+     * [UC-63] Hiện thực cổng chắn kiểm tra quyền sử dụng tính năng của người dùng dựa trên án phạt.
+     * 
+     * Luồng xử lý:
+     * 1. Chuẩn hóa mã tính năng đầu vào thành chữ in hoa.
+     * 2. Truy vấn danh sách án phạt trạng thái ACTIVE của người dùng từ CSDL.
+     * 3. Lọc các án phạt thuộc loại FEATURE_RESTRICTION còn trong thời hạn hiệu lực (expiresAt null hoặc sau thời điểm hiện tại).
+     * 4. So khớp xem chi tiết hạn chế (restrictionDetails) có chứa mã tính năng yêu cầu hay không.
+     * 5. Ném ForbiddenException nếu tài khoản bị cấm sử dụng tính năng.
+     * 
+     * @param userId Định danh người dùng
+     * @param featureCode Mã tính năng cần kiểm tra
+     * @throws ForbiddenException nếu tính năng đang bị áp dụng chế tài cấm
+     */
     @Override
     @Transactional(readOnly = true)
     public void requireFeature(Long userId, String featureCode) {

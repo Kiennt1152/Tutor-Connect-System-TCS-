@@ -45,6 +45,25 @@ import org.springframework.transaction.annotation.Transactional;
 public class AdminEscrowServiceImpl implements AdminEscrowService {
     private final EscrowTransactionRepository repository;
 
+    /**
+     * [UC-58] Tìm kiếm và phân trang giao dịch ký quỹ bảo chứng theo tiêu chí đa chiều.
+     * 
+     * Luồng xử lý:
+     * 1. Chuyển đổi mốc ngày from/to sang LocalDateTime đầu ngày và cuối ngày.
+     * 2. Chuẩn hóa các chuỗi tìm kiếm (chuyển chuỗi rỗng thành null).
+     * 3. Gọi repository.searchAdmin thực thi truy vấn cơ sở dữ liệu có phân trang.
+     * 4. Ánh xạ kết quả sang DTO AdminEscrowResponse và đóng gói trang kết quả.
+     * 
+     * @param status Trạng thái Escrow
+     * @param from Ngày bắt đầu
+     * @param to Ngày kết thúc
+     * @param reference Mã tham chiếu
+     * @param payer Người nạp tiền
+     * @param beneficiary Người thụ hưởng
+     * @param page Số trang
+     * @param size Số phần tử mỗi trang
+     * @return AdminEscrowPageResponse kết quả phân trang
+     */
     public AdminEscrowPageResponse search(EscrowStatus status, LocalDate from, LocalDate to, String reference,
             String payer, String beneficiary, int page, int size) {
         Page<EscrowTransaction> result = repository.searchAdmin(status,
@@ -55,6 +74,13 @@ public class AdminEscrowServiceImpl implements AdminEscrowService {
                 .size(result.getSize()).totalElements(result.getTotalElements()).totalPages(result.getTotalPages()).build();
     }
 
+    /**
+     * [UC-58] Tra cứu thông tin chi tiết khoản ký quỹ Escrow theo ID.
+     * 
+     * @param escrowId ID khoản ký quỹ
+     * @return AdminEscrowResponse chi tiết khoản ký quỹ
+     * @throws ResourceNotFoundException nếu không tìm thấy
+     */
     public AdminEscrowResponse get(Long escrowId) {
         return map(repository.findById(escrowId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy escrow: " + escrowId)));

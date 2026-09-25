@@ -59,6 +59,9 @@ const PAYMENT_STATUS_LABEL: Record<string, { label: string; cls: string }> = {
   CANCELLED: { label: 'Đã hủy', cls: 'contract-status--completed' },
 };
 
+/**
+ * [UC-20] [UC-44] Định dạng số tiền sang chuẩn tiền tệ Việt Nam Đồng (VND).
+ */
 const formatCurrency = (value: number | string | null | undefined) => {
   const amount = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(amount)) return '—';
@@ -74,6 +77,9 @@ const toAmount = (value: number | string | null | undefined) => {
   return Number.isFinite(amount) ? amount : 0;
 };
 
+/**
+ * [UC-20] [UC-44] Định dạng thời gian hiển thị theo chuẩn ngày tháng giờ phút Việt Nam.
+ */
 const formatDateTime = (value: string | null | undefined) => {
   if (!value) return '—';
   const date = new Date(value);
@@ -98,6 +104,10 @@ const getEscrowLabel = (escrow: EscrowPaymentInfo | null | undefined) => {
 const getEscrowCode = (escrow: EscrowPaymentInfo) =>
   escrow.referenceCode?.trim() || (escrow.escrowId ? `#${escrow.escrowId}` : '—');
 
+/**
+ * [UC-20] [UC-44] Màn hình danh sách hợp đồng giảng dạy của người dùng.
+ * Phân loại theo các trạng thái (Chờ ký, Đang chạy, Hoàn thành, Chấm dứt) kèm tóm tắt thanh toán Escrow.
+ */
 export default function ContractListPage() {
   const { contracts, loading, error, reload } = useContractList();
   const { user } = useAuth();

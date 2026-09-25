@@ -79,6 +79,17 @@ public class CircumventionServiceImpl implements CircumventionService {
     private final AuthHelper authHelper;
     private final AuditLogService auditLogService;
 
+    /**
+     * [UC-59] Quét kiểm duyệt tin nhắn thời gian thực để phát hiện hành vi lách sàn.
+     * 
+     * Luồng xử lý:
+     * 1. Kiểm tra tính hợp lệ của tin nhắn và nội dung văn bản.
+     * 2. Quét qua 4 luật biểu thức chính quy (SĐT, Email, URL, MXH).
+     * 3. Khi phát hiện chuỗi vi phạm đầu tiên, trích xuất đoạn bằng chứng (tối đa 500 ký tự).
+     * 4. Khởi tạo thực thể CircumventionEvent với điểm rủi ro tương ứng và lưu vào CSDL.
+     * 
+     * @param message Thực thể tin nhắn cần quét
+     */
     // Luồng 13 - Bước 2: Quét kiểm duyệt tin nhắn thời gian thực (Real-time Message Inspection)
     @Override
     @Transactional
@@ -100,6 +111,19 @@ public class CircumventionServiceImpl implements CircumventionService {
         }
     }
 
+    /**
+     * [UC-59] Lấy danh sách các sự kiện nghi vấn lách nền tảng có phân trang và lọc theo trạng thái.
+     * 
+     * Luồng xử lý:
+     * 1. Chuẩn hóa tham số phân trang page và size (giới hạn tối đa 100 bản ghi/trang).
+     * 2. Truy vấn CSDL theo trạng thái (hoặc lấy tất cả nếu để trống), sắp xếp thời gian tạo mới nhất.
+     * 3. Ánh xạ danh sách CircumventionEvent sang CircumventionEventResponse và đóng gói trang kết quả.
+     * 
+     * @param status Trạng thái cần lọc (PENDING, CONFIRMED, DISMISSED hoặc null)
+     * @param page Số trang truy vấn
+     * @param size Kích thước trang
+     * @return PageCircumventionEventResponse danh sách sự kiện phân trang
+     */
     @Override
     @Transactional(readOnly = true)
     public PageCircumventionEventResponse list(String status, int page, int size) {
@@ -112,6 +136,20 @@ public class CircumventionServiceImpl implements CircumventionService {
                 .totalPages(result.getTotalPages()).build();
     }
 
+    /**
+     * [UC-59] Truy xuất bằng chứng ngữ cảnh cuộc hội thoại chứa tin nhắn vi phạm lách sàn.
+     * 
+     * Luồng xử lý:
+     * 1. Tìm thực thể CircumventionEvent theo eventId, ném ResourceNotFoundException nếu không thấy.
+     * 2. Lấy 100 tin nhắn mới nhất trong cuộc trò chuyện, đảo ngược theo thứ tự thời gian tăng dần.
+     * 3. Tập hợp danh sách thành viên tham gia hội thoại (participants).
+     * 4. Đánh dấu cờ (flagged = true) cho tin nhắn cụ thể kích hoạt cảnh báo vi phạm.
+     * 5. Ghi nhật ký kiểm toán hành động xem bằng chứng vào AuditLogService.
+     * 
+     * @param eventId ID sự kiện nghi vấn
+     * @return CircumventionConversationResponse đối tượng chứa toàn bộ ngữ cảnh tin nhắn bằng chứng
+     * @throws ResourceNotFoundException nếu không tìm thấy sự kiện
+     */
     @Override
     @Transactional
     public CircumventionConversationResponse getConversationEvidence(Long eventId) {
@@ -156,6 +194,21 @@ public class CircumventionServiceImpl implements CircumventionService {
                 .build();
     }
 
+    /**
+     * [UC-59] Thẩm định và cập nhật kết luận xử lý sự kiện vi phạm lách nền tảng.
+     * 
+     * Luồng xử lý:
+     * 1. Tìm sự kiện theo eventId và kiểm tra trạng thái hiện tại phải là PENDING.
+     * 2. Xác định danh tính Quản trị viên đang thực hiện thẩm định từ AuthHelper.
+     * 3. Cập nhật trạng thái mới (CONFIRMED hoặc DISMISSED), ghi chú thẩm định và mốc thời gian xét duyệt.
+     * 4. Lưu sự kiện vào CSDL và ghi nhận vết kiểm toán REVIEW_CIRCUMVENTION.
+     * 
+     * @param eventId ID sự kiện cần thẩm định
+     * @param request Yêu cầu thẩm định chứa trạng thái phê duyệt và ghi chú
+     * @return CircumventionEventResponse kết quả sự kiện sau khi cập nhật
+     * @throws ResourceNotFoundException nếu không tìm thấy sự kiện hoặc Quản trị viên
+     * @throws IllegalStateException nếu sự kiện đã được xét duyệt trước đó
+     */
     @Override
     @Transactional
     public CircumventionEventResponse review(Long eventId, ReviewCircumventionRequest request) {

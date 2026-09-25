@@ -38,11 +38,26 @@ import org.springframework.web.bind.annotation.RestController;
 public class PlatformTaskController {
     private final PlatformTaskQueueService taskQueueService;
 
+    /**
+     * [UC-59]: Lấy số liệu tổng hợp về hàng đợi tác vụ nền (Queue Health & SLA Summary).
+     * 
+     * @return {@link TaskQueueSummaryResponse} Tổng số tác vụ đang chờ, đang chạy, lỗi và số ca vi phạm SLA
+     */
     @GetMapping("/summary")
     public TaskQueueSummaryResponse getSummary() {
         return taskQueueService.getSummary();
     }
 
+    /**
+     * [UC-59]: Tra cứu, lọc và phân trang danh sách các tác vụ nền đang được giám sát.
+     * 
+     * @param type Phân loại tác vụ (ESCROW_RELEASE, EMAIL_DISPATCH, SYNC_DATA...)
+     * @param priority Mức độ ưu tiên (HIGH, MEDIUM, LOW)
+     * @param slaBreached Lọc các tác vụ đã vi phạm thời hạn cam kết xử lý SLA
+     * @param page Số trang truy vấn (mặc định 0)
+     * @param size Số bản ghi mỗi trang (mặc định 20)
+     * @return {@link PageTaskItemResponse} Danh sách tác vụ kèm trạng thái phân trang
+     */
     @GetMapping
     public PageTaskItemResponse listTasks(
             @RequestParam(required = false) String type,

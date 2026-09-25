@@ -30,8 +30,38 @@ import java.util.List;
  * ============================================================================
  */
 public interface AiService {
+
+    /**
+     * [UC-65] Xử lý hội thoại thông minh RAG đa bước với người dùng.
+     * 
+     * @param request Dữ liệu câu hỏi và ngữ cảnh phiên hội thoại {@link ChatRequest}
+     * @param userId ID người dùng đang chat (null nếu là khách vãng lai)
+     * @return Câu trả lời từ AI kèm thẻ gợi ý thực thể {@link AiMessageResponse}
+     */
     AiMessageResponse chat(ChatRequest request, Long userId);
+
+    /**
+     * [UC-65] Lấy danh sách các phiên hội thoại AI của người dùng hiện tại.
+     * 
+     * @param userId ID người dùng đã xác thực
+     * @return Danh sách các phiên trò chuyện {@link AiSessionResponse}
+     */
     List<AiSessionResponse> getUserSessions(Long userId);
+
+    /**
+     * [UC-65] Tải toàn bộ tin nhắn trong một phiên hội thoại kèm các thẻ tham chiếu.
+     * 
+     * @param sessionId ID phiên trò chuyện
+     * @param userId ID người dùng yêu cầu truy cập
+     * @return Danh sách tin nhắn trao đổi {@link AiMessageResponse}
+     */
     List<AiMessageResponse> getSessionMessages(Long sessionId, Long userId);
+
+    /**
+     * [UC-65] Xóa bỏ phiên trò chuyện và toàn bộ lịch sử tin nhắn liên quan.
+     * 
+     * @param sessionId ID phiên trò chuyện cần xóa
+     * @param userId ID người dùng sở hữu phiên chat
+     */
     void deleteSession(Long sessionId, Long userId);
 }

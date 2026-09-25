@@ -264,6 +264,9 @@ export default function PlatformAuditLogsPage() {
     size: 20,
   });
 
+  /**
+   * [UC-61] Tải danh sách nhật ký kiểm toán bất biến phục vụ thanh tra hệ thống.
+   */
   const fetchLogs = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -285,6 +288,9 @@ export default function PlatformAuditLogsPage() {
     fetchLogs();
   }, [fetchLogs]);
 
+  /**
+   * [UC-61] Cập nhật tiêu chí lọc nhật ký kiểm toán và tự động quay về trang đầu.
+   */
   const handleFilterChange = (key: keyof AuditLogFilters, value: string | number | undefined) => {
     setFilters((prev) => ({
       ...prev,
@@ -293,6 +299,9 @@ export default function PlatformAuditLogsPage() {
     }));
   };
 
+  /**
+   * [UC-61] Đặt lại toàn bộ bộ lọc nhật ký kiểm toán về mặc định.
+   */
   const handleResetFilters = () => {
     setFilters({ page: 0, size: 20 });
   };

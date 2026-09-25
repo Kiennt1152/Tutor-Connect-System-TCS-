@@ -43,6 +43,16 @@ public class PublicAnnouncementController {
 
     private final AnnouncementService announcementService;
 
+    /**
+     * [UC-64]: Lấy danh sách các bản tin thông báo công khai đang trong thời hạn hiệu lực hiển thị.
+     * 
+     * Luồng xử lý:
+     *   1. Nhận diện vai trò hiện tại của người dùng (khách vãng lai, gia sư, học viên, trung tâm).
+     *   2. Lọc các thông báo có trạng thái ACTIVE và nằm trong khoảng thời gian hiệu lực.
+     *   3. Trả về danh sách hiển thị trên banner hoặc trang chủ.
+     * 
+     * @return Danh sách bản tin thông báo công khai {@link AnnouncementResponse}
+     */
     @GetMapping
     public List<AnnouncementResponse> getVisibleAnnouncements() {
         return announcementService.getVisibleAnnouncements(currentRoleOrNull());

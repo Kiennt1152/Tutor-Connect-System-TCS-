@@ -28,7 +28,33 @@ import java.time.LocalDate;
  * ============================================================================
  */
 public interface AdminEscrowService {
+    /**
+     * [UC-58] Tìm kiếm và phân trang các giao dịch ký quỹ bảo chứng Escrow phục vụ Quản trị viên đối soát tài chính.
+     * 
+     * Luồng xử lý:
+     * 1. Tiếp nhận các tiêu chí lọc: trạng thái ký quỹ (status), khoảng ngày gửi tiền (from, to), mã tham chiếu (reference), email/tên người nạp (payer), người thụ hưởng (beneficiary).
+     * 2. Thực thi truy vấn phân trang trên EscrowTransactionRepository.
+     * 3. Ánh xạ danh sách giao dịch kèm thông tin lớp học, hợp đồng và đối tác giao dịch.
+     * 
+     * @param status Trạng thái bảo chứng (HELD, RELEASED, REFUNDED, DISPUTED)
+     * @param from Ngày bắt đầu phát sinh giao dịch
+     * @param to Ngày kết thúc phát sinh giao dịch
+     * @param reference Mã tham chiếu giao dịch thanh toán
+     * @param payer Email hoặc tên người thanh toán (Phụ huynh)
+     * @param beneficiary Email hoặc tên người thụ hưởng (Gia sư / Trung tâm)
+     * @param page Số trang truy vấn (bắt đầu từ 0)
+     * @param size Kích thước trang
+     * @return AdminEscrowPageResponse kết quả phân trang giao dịch ký quỹ bảo chứng
+     */
     AdminEscrowPageResponse search(EscrowStatus status, LocalDate from, LocalDate to, String reference,
             String payer, String beneficiary, int page, int size);
+
+    /**
+     * [UC-58] Tra cứu chi tiết một giao dịch ký quỹ Escrow theo mã định danh.
+     * 
+     * @param escrowId Định danh khoản ký quỹ Escrow
+     * @return AdminEscrowResponse thông tin chi tiết đầy đủ của giao dịch ký quỹ
+     * @throws com.tcs.exception.ResourceNotFoundException nếu không tìm thấy giao dịch ký quỹ
+     */
     AdminEscrowResponse get(Long escrowId);
 }

@@ -26,6 +26,11 @@ import java.util.Optional;
  */
 public interface GeminiService {
 
-    /** Tra ve Optional.empty() neu chua cau hinh API key hoac goi API loi (rate limit, timeout...). */
+    /**
+     * [UC-65] Gửi câu hỏi thắc mắc tới mô hình Google Gemini để nhận câu trả lời hỗ trợ tự động.
+     * 
+     * @param question Nội dung câu hỏi của người dùng
+     * @return {@link Optional} chứa chuỗi phản hồi từ Gemini, hoặc Optional.empty() nếu lỗi/chưa có API key
+     */
     Optional<String> askQuestion(String question);
 }

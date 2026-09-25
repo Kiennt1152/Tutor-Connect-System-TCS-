@@ -52,7 +52,13 @@ public class SystemParameterController {
     // LUỒNG 10: CẤU HÌNH THAM SỐ NỀN TẢNG & TỶ LỆ PHÍ ĐỘNG (UC-46)
     // =========================================================================
 
-    // Luồng 10 - Tra cứu danh sách tham số nền tảng
+    /**
+     * [UC-38] [UC-46]: Tra cứu danh sách tham số cấu hình vận hành nền tảng có hỗ trợ lọc từ khóa.
+     * 
+     * @param prefix Tiền tố nhóm tham số (ví dụ: PLATFORM_, ESCROW_, SECURITY_)
+     * @param keyword Từ khóa tìm kiếm trong khóa hoặc mô tả tham số
+     * @return Danh sách cấu hình tham số {@link SystemParameterResponse}
+     */
     @GetMapping
     public List<SystemParameterResponse> getParameters(
             @RequestParam(required = false) String prefix,
@@ -61,18 +67,35 @@ public class SystemParameterController {
         return systemParameterService.getParameters(prefix, keyword);
     }
 
+    /**
+     * [UC-38]: Xem chi tiết giá trị và thuộc tính của một tham số cấu hình theo ID.
+     * 
+     * @param parameterId Mã định danh tham số
+     * @return {@link SystemParameterResponse} Thông tin chi tiết tham số
+     */
     @GetMapping("/{parameterId}")
     public SystemParameterResponse getParameter(@PathVariable Long parameterId) {
         return systemParameterService.getParameter(parameterId);
     }
 
-    // Luồng 10 - Tạo mới tham số hệ thống
+    /**
+     * [UC-38]: Thêm mới một tham số cấu hình tùy biến vào hệ thống.
+     * 
+     * @param request Dữ liệu tham số gồm key, value, kiểu dữ liệu và mô tả {@link UpsertSystemParameterRequest}
+     * @return {@link SystemParameterResponse} Tham số vừa tạo thành công
+     */
     @PostMapping
     public SystemParameterResponse createParameter(@Valid @RequestBody UpsertSystemParameterRequest request) {
         return systemParameterService.createParameter(request);
     }
 
-    // Luồng 10 - Bước 1: Tiếp nhận PATCH request cập nhật tham số (như PLATFORM_FEE_RATE)
+    /**
+     * [UC-38] [UC-46]: Điều chỉnh giá trị của một tham số hệ thống (ví dụ: cập nhật tỷ lệ phí sàn PLATFORM_FEE_RATE).
+     * 
+     * @param parameterId Mã định danh tham số cần sửa
+     * @param request Dữ liệu cập nhật giá trị mới {@link UpsertSystemParameterRequest}
+     * @return {@link SystemParameterResponse} Tham số sau khi cập nhật
+     */
     @PatchMapping("/{parameterId}")
     public SystemParameterResponse updateParameter(
             @PathVariable Long parameterId,
@@ -81,7 +104,11 @@ public class SystemParameterController {
         return systemParameterService.updateParameter(parameterId, request);
     }
 
-    // Luồng 10 - Xóa tham số tùy chỉnh (có chặn MANDATORY_KEYS ở Service)
+    /**
+     * [UC-38]: Xóa một tham số cấu hình tùy biến không còn nhu cầu sử dụng (chặn xóa các tham số bắt buộc).
+     * 
+     * @param parameterId Mã định danh tham số cần xóa
+     */
     @DeleteMapping("/{parameterId}")
     public void deleteParameter(@PathVariable Long parameterId) {
         systemParameterService.deleteParameter(parameterId);

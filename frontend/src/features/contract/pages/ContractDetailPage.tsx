@@ -324,6 +324,10 @@ export default function ContractDetailPage() {
     }
   }, [contract]);
 
+  /**
+   * [UC-44] Yêu cầu hệ thống gửi mã xác thực ký hợp đồng OTP qua email.
+   * Kích hoạt bộ đếm ngược 30 giây và mở ô nhập mã.
+   */
   const handleSendOtp = async () => {
     if (!id) return;
     const result = await sendOtp(id);
@@ -334,6 +338,10 @@ export default function ContractDetailPage() {
     }
   };
 
+  /**
+   * [UC-44] Xác nhận ký số hợp đồng điện tử bằng mã OTP 6 chữ số.
+   * Gửi mã lên backend xác thực qua OtpService và cập nhật trạng thái hợp đồng đã ký.
+   */
   const handleSign = async () => {
     if (!id || otpInput.trim().length !== 6) return;
     const result = await sign(id, otpInput.trim());
@@ -347,6 +355,10 @@ export default function ContractDetailPage() {
   // BF-03: gia sư từ chối thỏa thuận hợp tác chưa ký (đóng đơn, trung tâm chọn người khác).
   const [declining, setDeclining] = useState(false);
   const [declineError, setDeclineError] = useState('');
+  /**
+   * [BF-03] Gia sư từ chối thỏa thuận hợp tác tuyển dụng của trung tâm.
+   * Hợp đồng bị hủy bỏ và đơn ứng tuyển chuyển sang trạng thái WITHDRAWN.
+   */
   const handleDecline = async () => {
     if (!id) return;
     setDeclining(true);
@@ -362,6 +374,9 @@ export default function ContractDetailPage() {
     }
   };
 
+  /**
+   * [UC-44] Lưu thông tin tài khoản ngân hàng nhận tiền hoàn của phụ huynh trước khi quét QR Escrow.
+   */
   const handleSaveRefundPayout = async () => {
     if (!id || !payoutBankName.trim() || !payoutAccountNo.trim() || !payoutAccountHolder.trim()) {
       setPayoutMessage('Vui lòng chọn ngân hàng, nhập số tài khoản và tên chủ tài khoản.');
@@ -431,6 +446,9 @@ export default function ContractDetailPage() {
     }
   }, [checkingPaymentStatus, id, paymentReloading, showPaymentToast]);
 
+  /**
+   * [UC-44] Kiểm tra thủ công trạng thái thanh toán ký quỹ Escrow với SePay Webhook.
+   */
   const handleCheckEscrowPaymentStatus = () => {
     void checkEscrowPaymentStatus(false);
   };

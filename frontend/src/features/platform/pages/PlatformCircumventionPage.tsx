@@ -47,6 +47,9 @@ export default function PlatformCircumventionPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
+  /**
+   * [UC-59] Tải danh sách sự kiện nghi vấn lách nền tảng theo trạng thái kiểm duyệt.
+   */
   const load = useCallback(async () => {
     try {
       setItems((await platformApi.getCircumventionEvents(status)).data.content);
@@ -71,6 +74,9 @@ export default function PlatformCircumventionPage() {
   const endIndex = Math.min(startIndex + pageSize, items.length);
   const paginatedItems = items.slice(startIndex, endIndex);
 
+  /**
+   * [UC-59] Mở hộp thoại xem bằng chứng ngữ cảnh tin nhắn cuộc hội thoại xung quanh từ khóa lách sàn.
+   */
   async function openConversation(item: CircumventionEventApiResponse) {
     setLoadingConversationId(item.eventId);
     setConversationError(null);
@@ -83,6 +89,9 @@ export default function PlatformCircumventionPage() {
     }
   }
 
+  /**
+   * [UC-59] Thẩm định và ban hành phán quyết (Xác nhận vi phạm hoặc Hủy bỏ) đối với sự kiện lách sàn.
+   */
   async function review(item: CircumventionEventApiResponse, decision: 'CONFIRMED' | 'DISMISSED') {
     const note = window.prompt(decision === 'CONFIRMED' ? 'Ghi chú xác nhận' : 'Lý do bỏ qua', '');
     if (note === null) return;

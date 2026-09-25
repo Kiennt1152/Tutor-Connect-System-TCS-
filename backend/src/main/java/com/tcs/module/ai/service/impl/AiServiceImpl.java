@@ -112,7 +112,21 @@ public class AiServiceImpl implements AiService {
 
     // =========================================================================
     // LUỒNG 2: TRỢ LÝ AI HỖ TRỢ THÔNG MINH RAG CHATBOT (UC-65)
-    // =========================================================================
+    /**
+     * [UC-65] Xử lý truy vấn hội thoại thông minh kết hợp RAG 12 bước với bảo vệ an toàn.
+     * 
+     * Luồng xử lý:
+     * 1. Xác thực vai trò người dùng và khởi tạo/truy xuất phiên trò chuyện (AiChatSession).
+     * 2. Lưu câu hỏi người dùng vào CSDL và chạy bộ lọc Content Safety & Prompt Injection.
+     * 3. Mở rộng truy vấn (Synonym & Follow-up Expansion) và kiểm tra Semantic Cache (<50ms).
+     * 4. Phân loại ý định (Intent Classifier), làm giàu ngữ cảnh nghiệp vụ động (Dynamic Context Injection).
+     * 5. Truy xuất tri thức kết hợp Vector Embedding và BM25, áp dụng RBAC Filter và Reranker.
+     * 6. Tổng hợp phản hồi qua LLM Multi-Provider, kiểm tra Hallucination Guard và đóng gói thẻ gợi ý (Cards).
+     * 
+     * @param request Yêu cầu chat chứa câu hỏi và sessionId {@link ChatRequest}
+     * @param userId ID người dùng gửi câu hỏi (null nếu là khách)
+     * @return Câu trả lời chi tiết kèm thẻ tham chiếu thực thể {@link AiMessageResponse}
+     */
     @Override
     @Transactional
     public AiMessageResponse chat(ChatRequest request, Long userId) {

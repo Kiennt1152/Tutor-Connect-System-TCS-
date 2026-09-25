@@ -119,6 +119,18 @@ public class GeminiServiceImpl implements GeminiService {
                 .build();
     }
 
+    /**
+     * [UC-65] Xử lý câu hỏi tự động bằng Google Gemini với cơ chế tự động chuyển tiếp dự phòng Groq.
+     * 
+     * Luồng xử lý:
+     * 1. Kiểm tra tính hợp lệ của câu hỏi đầu vào (không rỗng hoặc khoảng trắng).
+     * 2. Ưu tiên gọi mô hình Google Gemini nếu đã cấu hình Gemini API Key.
+     * 3. Nếu Gemini gặp lỗi kết nối hoặc vượt hạn ngạch (rate limit), tự động fallback sang Groq API.
+     * 4. Trả về Optional rỗng nếu không có AI provider nào phản hồi thành công.
+     * 
+     * @param question Nội dung câu hỏi cần giải đáp
+     * @return Phản hồi văn bản được sinh từ AI hoặc Optional.empty()
+     */
     @Override
     public Optional<String> askQuestion(String question) {
         if (!StringUtils.hasText(question)) {
