@@ -6,6 +6,7 @@ import './WeeklyTimetable.css';
 
 const DAY_LABELS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
 
+/** Ngày thứ Hai của tuần chứa ngày d. */
 function mondayOf(d: Date): Date {
   const copy = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const shift = (copy.getDay() + 6) % 7;
@@ -13,8 +14,10 @@ function mondayOf(d: Date): Date {
   return copy;
 }
 
+/** Định dạng ngày thành "dd/MM". */
 const ddmm = (d: Date) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
 
+/** Buổi (Sáng/Chiều/Tối) mà giờ bắt đầu rơi vào. */
 function sessionOf(startTime: string): string {
   const hm = hhmm(startTime);
   const found = SESSION_OPTIONS.find((s) => hm < s.max);
@@ -32,6 +35,10 @@ interface Props {
   readonly reviewedLessonIds?: ReadonlySet<number>;
 }
 
+/**
+ * Thời khoá biểu theo tuần (7 cột × 3 buổi): chuyển tuần, nhảy tới tuần có buổi học tiếp theo,
+ * mỗi ô hiện các buổi học với nút điểm danh/đổi lịch/đánh giá tuỳ quyền.
+ */
 export function WeeklyTimetable({
   lessons,
   readOnly = false,
@@ -45,6 +52,7 @@ export function WeeklyTimetable({
   const [weekOffset, setWeekOffset] = useState(0);
   const todayIso = toIsoDate(new Date());
 
+  /** 7 ngày của tuần đang xem (theo độ lệch tuần so với tuần hiện tại). */
   const days = useMemo(() => {
     const monday = mondayOf(new Date());
     monday.setDate(monday.getDate() + weekOffset * 7);
@@ -55,6 +63,7 @@ export function WeeklyTimetable({
     });
   }, [weekOffset]);
 
+  /** Gom buổi học theo ô "ngày|buổi", sắp theo giờ bắt đầu. */
   const cells = useMemo(() => {
     const map = new Map<string, LessonResponse[]>();
     for (const lesson of lessons) {
@@ -72,6 +81,7 @@ export function WeeklyTimetable({
   const weekIsos = new Set(days.map((d) => d.iso));
   const countThisWeek = lessons.filter((l) => weekIsos.has(l.lessonDate)).length;
 
+  /** Độ lệch tuần tới tuần có buổi học sắp tới gần nhất (null nếu đang ở tuần đó hoặc không còn buổi). */
   const nextLessonOffset = useMemo(() => {
     const upcoming = lessons.filter((l) => l.lessonDate >= todayIso).map((l) => l.lessonDate).sort();
     if (upcoming.length === 0) return null;
@@ -188,6 +198,10 @@ export function WeeklyTimetable({
   );
 }
 
+/**
+ * Thẻ một buổi học trong ô: môn, giờ, lớp, trạng thái điểm danh (màu theo trạng thái) và các nút
+ * điểm danh, đổi lịch, xem chi tiết, đánh giá.
+ */
 function LessonChip({
   lesson,
   readOnly,
@@ -218,6 +232,7 @@ function LessonChip({
     onReschedule && lesson.attendanceStatus === 'PENDING' && !lesson.rescheduleLocked;
   const [attendOpen, setAttendOpen] = useState(false);
 
+  /** Phần thông tin của thẻ buổi học (môn, giờ, lớp, trạng thái). */
   const info = (
     <>
       <div className="wtt-chip__subject" title={lesson.subjectName ?? ''}>
@@ -312,7 +327,7 @@ function LessonChip({
       {onReview && done && (
         reviewed ? (
           <span className="wtt-chip__reviewed" title="Bạn đã đánh giá gia sư cho buổi học này">
-            ✓ Đã đánh giá
+            ✓ Đã đánh giá gia sư
           </span>
         ) : (
           <button

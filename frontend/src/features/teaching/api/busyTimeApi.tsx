@@ -16,6 +16,7 @@ export const busyTimeApi = {
   create: (payload: BusyTimePayload) =>
     axiosClient.post<BusyTimeResponse[]>('/profile/busy-times', payload).then((r) => r.data),
 
+  /** Xoá một lịch bận của gia sư. */
   remove: (busyTimeId: number) =>
     axiosClient.delete<void>(`/profile/busy-times/${busyTimeId}`).then(() => undefined),
 };

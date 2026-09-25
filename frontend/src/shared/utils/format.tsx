@@ -5,6 +5,7 @@ export function formatCurrency(value: number): string {
   }).format(value);
 }
 
+/** Cắt chuỗi giờ về "HH:mm". */
 export const hhmm = (time: string | null | undefined): string => (time ?? '').slice(0, 5);
 
 /** Giờ đã lưu đúng dạng hiển thị (00:00 = nửa đêm), chỉ cần cắt về HH:mm. */
@@ -41,7 +42,25 @@ export const slotOverlaps = (
 ): boolean =>
   startMinutes(start) < endMinutes(otherEnd) && startMinutes(otherStart) < endMinutes(end);
 
+/** Đổi Date sang "yyyy-MM-dd" theo giờ máy (không lệch múi giờ như toISOString). */
 export function toIsoDate(d: Date): string {
+  /** Thêm số 0 đằng trước cho đủ 2 chữ số. */
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** Tên thứ trong tuần, chỉ mục khớp Date.getDay() (0 = Chủ nhật). */
+const WEEKDAYS_VI = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+
+/**
+ * Định dạng ngày "yyyy-MM-dd" thành "Thứ x, dd/MM/yyyy".
+ * Không bao giờ hiển thị ngày dạng ISO thô cho người dùng.
+ */
+export function formatDateVi(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-').map(Number);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return iso;
+  const date = new Date(y, m - 1, d);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${WEEKDAYS_VI[date.getDay()]}, ${pad(d)}/${pad(m)}/${y}`;
 }

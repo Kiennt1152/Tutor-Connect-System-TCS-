@@ -15,6 +15,7 @@ public interface ClassAssignmentRepository extends JpaRepository<ClassAssignment
 
     List<ClassAssignment> findByTutor_TutorIdOrderByAssignedDateDesc(Long tutorId);
 
+    /** Các phân công thuộc lớp do một client tạo, mới nhất trước. */
     List<ClassAssignment> findByApplication_TutoringClass_Creator_UserIdOrderByAssignedDateDesc(
             Long creatorUserId);
 
@@ -27,6 +28,7 @@ public interface ClassAssignmentRepository extends JpaRepository<ClassAssignment
 
     Optional<ClassAssignment> findFirstByApplication_ApplicationId(Long applicationId);
 
+    /** Phân công mới nhất của một lớp. */
     Optional<ClassAssignment> findFirstByApplication_TutoringClass_ClassIdOrderByAssignedDateDesc(
             Long classId);
 

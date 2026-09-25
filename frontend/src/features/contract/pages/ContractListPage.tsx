@@ -32,7 +32,34 @@ import type { ContractApiResponse, ContractStatus, EscrowPaymentInfo } from '../
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { normalizeRole } from '../../../shared/auth/rbac';
+import { APP_ROUTES } from '../../../shared/constants/routes';
 import './ContractPage.css';
+
+/**
+ * Nơi nút "Chi tiết" dẫn tới.
+ *
+ * <p>Hợp đồng lớp RIÊNG (PRIVATE) không ký ở /contract/{id} mà ở trang "Ký hợp đồng làm gia sư",
+ * bằng OTP qua /marketplace/assignments/** — kèm đồng hồ 48 giờ, thêm điều khoản của bên A và
+ * bước nạp ký quỹ. Trỏ về /contract/{id} thì cùng một hợp đồng có hai màn ký với hai cách ký khác
+ * nhau, mỗi màn hiện một trạng thái. Nên ở đây chỉ liệt kê để tra cứu, còn việc ký đẩy về đúng
+ * một chỗ.</p>
+ *
+ * <p>Trang ký nhận classId rồi tự tra ra phân công, vì hợp đồng lúc này có thể chưa được sinh.</p>
+ *
+ * <p>Căn cứ là <b>assignmentId</b>, KHÔNG phải classType. Một lớp PRIVATE vẫn có thể sinh hợp đồng
+ * ghi danh (classStudent) — loại đó ký ngay tại /contract/{id}. Lấy classType làm chuẩn sẽ đá nhầm
+ * hợp đồng ghi danh sang trang ký lớp riêng, nơi không có phân công nào để mở.</p>
+ */
+function contractDetailPath(c: {
+  contractId: number;
+  assignmentId?: number | null;
+  classId?: number | null;
+}): string {
+  if (c.assignmentId && c.classId) {
+    return `${APP_ROUTES.signContract}?classId=${c.classId}`;
+  }
+  return `/contract/${c.contractId}`;
+}
 
 const STATUS_LABEL: Record<ContractStatus, { label: string; cls: string }> = {
   PENDING: { label: 'Chờ ký', cls: 'contract-status--pending' },
@@ -171,7 +198,6 @@ export default function ContractListPage() {
       <main className="contract-page contract-page--list tcs-container">
         <div className="contract-header">
           <div>
-            <p className="contract-eyebrow">Hợp đồng</p>
             <h1>Hợp đồng của tôi</h1>
           </div>
           <button className="tcs-btn tcs-btn--ghost" type="button" onClick={reload}>
@@ -232,7 +258,7 @@ export default function ContractListPage() {
                           </td>
                           <td>{new Date(c.createdAt).toLocaleDateString('vi-VN')}</td>
                           <td>
-                            <Link to={`/contract/${c.contractId}`} className="contract-action-link">
+                            <Link to={contractDetailPath(c)} className="contract-action-link">
                               Chi tiết
                             </Link>
                           </td>
@@ -336,7 +362,7 @@ export default function ContractListPage() {
                           </td>
                           <td>{formatDateTime(lastUpdate)}</td>
                           <td>
-                            <Link to={`/contract/${contract.contractId}`} className="contract-action-link">
+                            <Link to={contractDetailPath(contract)} className="contract-action-link">
                               Chi tiết
                             </Link>
                           </td>

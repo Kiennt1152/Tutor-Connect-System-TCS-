@@ -1623,11 +1623,13 @@ function DisputeDetail({
   );
 }
 
+/** Chi tiết một báo cáo đánh giá cho admin: nội dung đánh giá bị báo cáo và form chọn cách xử lý + ghi chú. */
 function ReviewReportDetail({
   detail,
   onChanged,
 }: {
   detail: ReportItem | null;
+  /** Gọi sau khi xử lý xong để tải lại danh sách báo cáo. */
   onChanged: () => void;
 }) {
   const [action, setAction] = useState<ReviewReportAction>('HIDE_REVIEW');
@@ -1657,6 +1659,7 @@ function ReviewReportDetail({
   const review = detail.reportedReview;
   const canResolve = detail.status === 'PENDING';
 
+  /** Gửi quyết định xử lý báo cáo đánh giá (giữ / ẩn / vi phạm / xoá) kèm ghi chú. */
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setErrorMessage('');

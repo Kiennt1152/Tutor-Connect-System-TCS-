@@ -224,7 +224,7 @@ public class ContractController {
     }
 
     /**
-     * [UC-29]: Gia sư gửi phản hồi giải trình hoặc cảm ơn đối với nhận xét đánh giá của học viên.
+     * [UC-29]: POST /api/contract/reviews/{reviewId}/reply — Gia sư gửi phản hồi giải trình hoặc cảm ơn đối với nhận xét đánh giá của học viên.
      * 
      * @param reviewId ID của đánh giá nhận xét
      * @param request Nội dung phản hồi của gia sư {@link ReplyReviewRequest}
@@ -237,7 +237,7 @@ public class ContractController {
     }
 
     /**
-     * [UC-29]: Chỉnh sửa nội dung đánh giá và điểm số đã gửi trong thời hạn cho phép.
+     * [UC-29]: PUT /api/contract/reviews/{reviewId} — Khách/học viên chỉnh sửa nội dung đánh giá và điểm số đã gửi trong thời hạn cho phép.
      * 
      * @param reviewId ID đánh giá cần chỉnh sửa
      * @param request Dữ liệu đánh giá cập nhật {@link CreateReviewRequest}
@@ -250,7 +250,7 @@ public class ContractController {
     }
 
     /**
-     * [UC-30]: Tra cứu chỉ số uy tín (Reputation Score) và thống kê đánh giá của một gia sư cụ thể.
+     * [UC-30]: GET /api/contract/reviews/reputation/{tutorId} — Tra cứu danh tiếng công khai, chỉ số uy tín (Reputation Score) và thống kê đánh giá của một gia sư cụ thể.
      * 
      * @param tutorId ID gia sư
      * @return {@link TutorReputationResponse} Điểm uy tín, tỷ lệ hoàn thành lớp và phân bổ điểm sao
@@ -261,7 +261,7 @@ public class ContractController {
     }
 
     /**
-     * [UC-30]: Gia sư tự tra cứu chỉ số uy tín và xếp hạng danh tiếng của chính mình.
+     * [UC-30]: GET /api/contract/reviews/my-reputation — Gia sư tự tra cứu chỉ số uy tín và xếp hạng danh tiếng của chính mình (Nhận xét về tôi).
      * 
      * @return {@link TutorReputationResponse} Điểm uy tín cá nhân và phản hồi chi tiết từ học viên
      */
@@ -271,7 +271,7 @@ public class ContractController {
     }
 
     /**
-     * [UC-29]: Lấy danh sách các lớp học đã kết thúc mà học viên đủ điều kiện viết đánh giá.
+     * [UC-29]: GET /api/contract/reviews/reviewable — Lấy danh sách các lớp học đã kết thúc mà khách/học viên đủ điều kiện viết đánh giá.
      * 
      * @return Danh sách các phân công lớp có thể đánh giá {@link ReviewableAssignmentResponse}
      */

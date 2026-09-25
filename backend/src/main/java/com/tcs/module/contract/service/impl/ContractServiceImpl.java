@@ -183,6 +183,7 @@ public class ContractServiceImpl implements ContractService {
     private final LessonRepository lessonRepository;
     private final LessonAttendanceRepository lessonAttendanceRepository;
     private final com.tcs.module.profile.service.CccdService cccdService;
+    private final com.tcs.module.marketplace.service.ClassTitleService classTitleService;
 
     // ─── VIEW CONTRACT (4.2) ──────────────────────────────────────────────────
 
@@ -2328,7 +2329,7 @@ public class ContractServiceImpl implements ContractService {
     }
 
     /**
-     * [BF-07] Kiểm tra xem khách đã gửi đánh giá cho lớp học này hay chưa.
+     * [BF-07] Kiểm tra xem khách đã gửi đánh giá cho lớp học này hay chưa (dùng khi gia sư bấm hoàn thành lớp).
      * 
      * @param classId ID lớp học
      * @return true nếu đã có đánh giá
@@ -2341,7 +2342,7 @@ public class ContractServiceImpl implements ContractService {
     }
 
     /**
-     * [BF-07] Gia sư gửi phản hồi đối với đánh giá nhận được từ phụ huynh.
+     * [BF-07] Gia sư gửi phản hồi (hoặc sửa phản hồi) một đánh giá dành cho chính mình; phản hồi mới ghi đè bản cũ.
      * 
      * @param reviewId ID đánh giá
      * @param request Dữ liệu phản hồi
@@ -2374,7 +2375,7 @@ public class ContractServiceImpl implements ContractService {
     }
 
     /**
-     * [BF-07] Phụ huynh chỉnh sửa lại đánh giá đã gửi trước đó.
+     * [BF-07] Khách/phụ huynh chỉnh sửa lại đánh giá đã gửi trước đó: chấm lại điểm, nhận xét, chế độ ẩn danh; tính lại điểm gia sư và báo luồng hoàn thành lớp.
      * 
      * @param reviewId ID đánh giá
      * @param request Dữ liệu đánh giá cập nhật
@@ -2420,7 +2421,7 @@ public class ContractServiceImpl implements ContractService {
     }
 
     /**
-     * [BF-07] Lấy điểm số uy tín và danh sách đánh giá công khai của gia sư theo tutorId.
+     * [BF-07] Lấy điểm số uy tín và danh sách đánh giá trên trang danh tiếng công khai của gia sư theo tutorId.
      * 
      * @param tutorId ID gia sư
      * @return TutorReputationResponse
@@ -2435,7 +2436,7 @@ public class ContractServiceImpl implements ContractService {
     }
 
     /**
-     * [BF-07] Gia sư tra cứu bảng điểm uy tín và thống kê xếp hạng của chính mình.
+     * [BF-07] Trang "Nhận xét về tôi": Gia sư tra cứu bảng điểm uy tín và thống kê xếp hạng của chính mình.
      * 
      * @return TutorReputationResponse
      */
@@ -2449,6 +2450,10 @@ public class ContractServiceImpl implements ContractService {
         return buildReputation(tutor);
     }
 
+    /**
+     * Tổng hợp danh tiếng gia sư từ đánh giá cuối mỗi lớp đang hiển thị: điểm TB, số lượt,
+     * phân bố 1–5 sao, điểm TB từng tiêu chí và danh sách đánh giá mới nhất trước.
+     */
     private TutorReputationResponse buildReputation(Tutor tutor) {
         Long tutorUserId = tutor.getUser().getUserId();
 
@@ -2528,6 +2533,7 @@ public class ContractServiceImpl implements ContractService {
                 && candidate.getReviewId() > current.getReviewId();
     }
 
+    /** Điểm trung bình (1 chữ số thập phân) và số lượt của từng tiêu chí, chỉ tính đánh giá có chấm tiêu chí. */
     private List<TutorReputationResponse.CriterionAverage> criteriaAverages(List<Review> reviews) {
         Map<String, int[]> sumCount = new LinkedHashMap<>();
         Map<String, String> questions = new LinkedHashMap<>();
@@ -2564,7 +2570,8 @@ public class ContractServiceImpl implements ContractService {
     }
 
     /**
-     * [BF-07] Phụ huynh lấy danh sách các phân công lớp học có thể đánh giá hoặc đã đánh giá.
+     * [BF-07] Danh sách "Đánh giá của tôi" của khách: lớp tự tạo + lớp trung tâm đã ghi danh, kèm số buổi đã học,
+     * số lượt đã đánh giá, còn được đánh giá không, có quá hạn một tháng không và đánh giá gần nhất.
      * 
      * @return Danh sách ReviewableAssignmentResponse
      */
@@ -2690,6 +2697,7 @@ public class ContractServiceImpl implements ContractService {
         }
     }
 
+    /** Đã quá 1 tháng kể từ buổi học đầu tiên (chưa đánh giá lần nào) hoặc từ lần đánh giá gần nhất chưa. */
     private boolean isReviewOverdue(List<Review> reviews, List<LocalDate> occurred) {
         LocalDate ref = reviews.isEmpty()
                 ? (occurred.isEmpty() ? null : occurred.get(0))
@@ -2701,6 +2709,9 @@ public class ContractServiceImpl implements ContractService {
                 && !LocalDate.now().isBefore(ref.plusMonths(REVIEW_REQUIRED_WITHIN_MONTHS));
     }
 
+    /**
+     * Điểm tổng của đánh giá: trung bình các tiêu chí (mỗi tiêu chí 1–5), không có tiêu chí thì dùng số sao gửi lên.
+     */
     private BigDecimal resolveOverallRating(CreateReviewRequest request) {
         List<ReviewCriterionDto> criteria = request.getCriteria();
         if (criteria != null && !criteria.isEmpty()) {
@@ -2718,6 +2729,7 @@ public class ContractServiceImpl implements ContractService {
         return BigDecimal.valueOf(request.getRating()).setScale(1, RoundingMode.HALF_UP);
     }
 
+    /** Ghi danh sách điểm tiêu chí thành JSON để lưu; không có tiêu chí thì null. */
     private String serializeCriteria(List<ReviewCriterionDto> criteria) {
         if (criteria == null || criteria.isEmpty()) {
             return null;
@@ -2730,7 +2742,7 @@ public class ContractServiceImpl implements ContractService {
     }
 
     /**
-     * [BF-07] Tính toán lại điểm số uy tín của Gia sư theo ID người dùng.
+     * [BF-07] Tính toán lại điểm số uy tín trung bình của Gia sư theo ID người dùng (gọi sau khi admin ẩn/hiện/xoá đánh giá).
      * 
      * @param tutorUserId ID người dùng của gia sư
      */
@@ -2742,6 +2754,7 @@ public class ContractServiceImpl implements ContractService {
                 .ifPresent(tutor -> recomputeTutorReputation(tutor, tutorUserId));
     }
 
+    /** Tính lại điểm trung bình gia sư (đánh giá cuối mỗi lớp, 2 chữ số); điểm đổi thì lưu và ghi lịch sử uy tín. */
     private void recomputeTutorReputation(Tutor tutor, Long tutorUserId) {
         // Điểm trung bình cũng chỉ dựa trên đánh giá cuối của từng lớp, để một lớp được đánh giá
         // nhiều buổi không lấn át lớp chỉ đánh giá một lần.
@@ -2770,6 +2783,7 @@ public class ContractServiceImpl implements ContractService {
         reputationHistoryRepository.save(history);
     }
 
+    /** Cắt khoảng trắng; chuỗi rỗng thì null. */
     private static String trimToNull(String value) {
         if (value == null) {
             return null;
@@ -2796,12 +2810,19 @@ public class ContractServiceImpl implements ContractService {
                         reviewClass != null && reviewClass.getSubject() != null
                                 ? reviewClass.getSubject().getSubjectName()
                                 : null)
+                // Danh sách môn thực dạy, để giao diện gạch được môn có trong tiêu đề mà gia sư
+                // không nhận. Môn chính của lớp (subjectName) không nói lên điều đó.
+                .subjectNames(
+                        reviewClass != null
+                                ? classTitleService.subjectNames(reviewClass.getDetailsJson())
+                                : java.util.List.of())
                 .anonymous(review.isAnonymous())
                 .reviewerDisplayName(resolveReviewerDisplayName(review))
                 .createdAt(review.getCreatedAt())
                 .build();
     }
 
+    /** Tên hiển thị người đánh giá: ẩn danh thì bút danh hoặc "Người dùng ẩn danh", ngược lại là họ tên khách. */
     private String resolveReviewerDisplayName(Review review) {
         if (review.isAnonymous()) {
             String custom = trimToNull(review.getDisplayName());

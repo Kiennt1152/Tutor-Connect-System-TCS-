@@ -36,6 +36,7 @@ export default function ClassBoardPage() {
   const [subjects, setSubjects] = useState<CatalogOption[]>([]);
   const [page, setPage] = useState(1);
 
+  /** Tải lại bảng tin đã đăng và quay về trang 1. */
   const reload = () => {
     setStatus('loading');
     marketplaceApi
@@ -54,11 +55,13 @@ export default function ClassBoardPage() {
   }, []);
 
   const totalPages = Math.max(1, Math.ceil(classes.length / PAGE_SIZE));
+  /** Các tin của trang đang xem. */
   const pageClasses = useMemo(
     () => classes.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
     [classes, page],
   );
 
+  /** Chuyển trang và cuộn lên đầu. */
   const goToPage = (p: number) => {
     setPage(p);
     window.scrollTo({ top: 0, behavior: 'smooth' });

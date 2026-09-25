@@ -22,9 +22,11 @@ interface Props {
  * nút quản lý của chủ lớp).
  */
 export function OpenClassBoardCard({ c, subjects }: Props) {
+  /** Dữ liệu lớp đọc từ detailsJson. */
   const form = useMemo(() => classToForm(c), [c]);
   const isOnline = c.lessonMode === 'ONLINE';
 
+  /** Các dòng "môn – học phí": lấy từ detailsJson, không có thì dùng môn/học phí chính của lớp. */
   const subjectRows = useMemo(() => {
     const nameById = new Map(subjects.map((s) => [String(s.id), s.name]));
     if (c.detailsJson && form.subjectIds.length > 0) {

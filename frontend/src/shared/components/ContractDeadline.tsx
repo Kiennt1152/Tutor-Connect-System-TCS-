@@ -29,12 +29,14 @@ export function ContractDeadline({
   const [msLeft, setMsLeft] = useState(() => end - Date.now());
 
   useEffect(() => {
+    /** Cập nhật số mili-giây còn lại tới hạn. */
     const tick = () => setMsLeft(end - Date.now());
     tick();
     const id = window.setInterval(tick, 1000);
     return () => window.clearInterval(id);
   }, [end]);
 
+  /** Thêm số 0 đằng trước cho đủ 2 chữ số. */
   const pad = (n: number) => String(n).padStart(2, '0');
   let label: string;
   let tone: 'ok' | 'warn' | 'urgent' | 'expired';

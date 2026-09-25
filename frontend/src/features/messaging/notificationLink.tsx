@@ -1,6 +1,7 @@
 import { APP_ROUTES } from '../../shared/constants/routes';
 import type { NotificationItem } from './api/notificationsApi';
 
+/** Trang cần mở khi bấm một thông báo (theo loại thông báo và vai trò người dùng); không có thì null. */
 export function notificationLink(
   n: NotificationItem,
   role: string | undefined | null,
@@ -62,6 +63,15 @@ export function notificationLink(
     if (role === 'TUTOR') return `${APP_ROUTES.recruitment}?tab=mine`;
     if (role === 'TUTOR_CENTER') return '/center/recruitment';
     return null;
+  }
+
+  // Hợp đồng lớp RIÊNG: ký ở trang "Ký hợp đồng làm gia sư", không nằm trong danh sách
+  // /contract. Đẩy về /contract thì người dùng mở ra chỉ thấy danh sách trống rỗng.
+  // referenceId là classId — trang ký tự tra ra phân công tương ứng.
+  if (n.referenceType === 'PRIVATE_CONTRACT') {
+    return n.referenceId
+      ? `${APP_ROUTES.signContract}?classId=${n.referenceId}`
+      : APP_ROUTES.teaching;
   }
 
   // Hợp đồng: việc cần làm là ký hoặc thanh toán ký quỹ, phải về trang Hợp đồng.

@@ -1,7 +1,9 @@
 import type { ClassBusyConflict } from '../types/marketplaceTypes';
 import './tutorFindClass.css';
 
+/** Đổi ngày ISO thành "dd/MM". */
 const ddmm = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+/** Cắt chuỗi giờ về "HH:mm" (null -> rỗng). */
 const hhmm = (t: string | null) => (t ?? '').slice(0, 5);
 
 /**

@@ -17,6 +17,7 @@ type AuthContextValue = {
   login: (body: LoginRequest) => Promise<AuthResponse>;
   /** newUser=true nghia la chua co tai khoan; goi completeGoogleSignup de hoan tat. */
   loginWithGoogle: (body: GoogleLoginRequest) => Promise<GoogleLoginResponse>;
+  /** Hoàn tất đăng ký bằng Google (vai trò + số điện thoại) và đăng nhập luôn. */
   completeGoogleSignup: (body: GoogleCompleteRequest) => Promise<GoogleLoginResponse>;
   logout: () => Promise<void>;
 };
@@ -98,6 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return response;
   }, []);
 
+  /** Đăng nhập Google: tài khoản đã có thì lưu phiên ngay; tài khoản mới thì trả về để hỏi thêm thông tin. */
   const loginWithGoogle = useCallback(async (body: GoogleLoginRequest) => {
     const response = await identityApi.loginWithGoogle(body);
     if (!response.newUser) {
@@ -107,6 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return response;
   }, []);
 
+  /** Gửi thông tin hoàn tất đăng ký Google, lưu phiên và cập nhật người dùng hiện tại. */
   const completeGoogleSignup = useCallback(async (body: GoogleCompleteRequest) => {
     const response = await identityApi.completeGoogleSignup(body);
     persistAuth(response as Required<Pick<GoogleLoginResponse, 'accessToken' | 'userId' | 'email' | 'role' | 'displayName' | 'tokenExpiresInSeconds'>>);

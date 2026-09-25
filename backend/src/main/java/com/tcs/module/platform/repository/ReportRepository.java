@@ -19,6 +19,7 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
 
     List<Report> findByTargetTypeOrderByCreatedAtDesc(ReportTargetType targetType);
 
+    /** Các báo cáo nhắm vào một đối tượng (ví dụ một đánh giá), mới nhất trước. */
     List<Report> findByTargetTypeAndTargetIdOrderByCreatedAtDesc(
             ReportTargetType targetType, Long targetId);
 

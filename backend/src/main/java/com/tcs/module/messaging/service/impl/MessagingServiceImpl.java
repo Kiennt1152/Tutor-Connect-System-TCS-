@@ -594,6 +594,7 @@ public class MessagingServiceImpl implements MessagingService {
                 .build();
     }
 
+    /** Báo cho mọi admin khi có báo cáo mới (đối tượng, lý do và nơi xử lý). */
     private void notifyAdminsNewReport(Report report) {
         List<PlatformAdmin> admins = platformAdminRepository.findAll();
         if (admins.isEmpty()) {
@@ -624,6 +625,7 @@ public class MessagingServiceImpl implements MessagingService {
         }
     }
 
+    /** Nhãn tiếng Việt của đối tượng bị báo cáo (nhận xét gia sư / người dùng / lớp học). */
     private String reportTargetLabel(ReportTargetType type) {
         if (type == null) {
             return "một nội dung";
@@ -635,6 +637,7 @@ public class MessagingServiceImpl implements MessagingService {
         };
     }
 
+    /** Tên trang admin nơi xử lý loại báo cáo này. */
     private String reportHandlingPageLabel(ReportTargetType type) {
         if (type == ReportTargetType.REVIEW) {
             return "Báo cáo & tranh chấp > Báo cáo đánh giá";
@@ -642,6 +645,7 @@ public class MessagingServiceImpl implements MessagingService {
         return "Báo cáo & tranh chấp";
     }
 
+    /** Nhãn tiếng Việt của lý do báo cáo. */
     private String reportCategoryLabel(ReportCategory category) {
         if (category == null) {
             return "khác";

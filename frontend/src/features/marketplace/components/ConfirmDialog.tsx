@@ -10,6 +10,7 @@ interface ConfirmDialogProps {
   readonly onClose: () => void;
 }
 
+/** Hộp thoại xác nhận dùng chung: tiêu đề, nội dung (tuỳ chọn), nút xác nhận/huỷ; Esc để đóng. */
 export function ConfirmDialog({
   title,
   message,
@@ -19,6 +20,7 @@ export function ConfirmDialog({
   onClose,
 }: ConfirmDialogProps) {
   useEffect(() => {
+    /** Bấm Esc thì đóng hộp thoại. */
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose();
     }

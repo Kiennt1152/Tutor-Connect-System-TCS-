@@ -96,6 +96,7 @@ class ProfileServiceImplBusyTimeTest {
     private Tutor tutor;
     private final LocalDate tomorrow = LocalDate.now().plusDays(1);
 
+    /** Dựng gia sư giả đang đăng nhập và mock repository: mặc định chưa có lịch bận, saveAll gán id tăng dần. */
     @BeforeEach
     void setUp() {
         User tutorUser = new User();
@@ -126,6 +127,7 @@ class ProfileServiceImplBusyTimeTest {
         });
     }
 
+    /** Tạo yêu cầu đăng ký bận cho các ngày với một khoảng giờ (null = cả ngày). */
     private TutorBusyTimeRequest request(List<LocalDate> dates, LocalTime start, LocalTime end) {
         TutorBusyTimeRequest r = new TutorBusyTimeRequest();
         r.setDates(dates);
@@ -134,6 +136,7 @@ class ProfileServiceImplBusyTimeTest {
         return r;
     }
 
+    /** Tạo một bản ghi lịch bận có sẵn của gia sư (id 99) để giả lập trùng giờ. */
     private TutorBusyTime existing(LocalDate date, LocalTime start, LocalTime end) {
         TutorBusyTime b = new TutorBusyTime();
         b.setBusyTimeId(99L);
@@ -166,6 +169,7 @@ class ProfileServiceImplBusyTimeTest {
         verify(auditLogService, never()).record(any(Long.class), eq("ADD_BUSY_TIME"), any(), isNull(), any(), any());
     }
 
+    /** Tạo khoảng giờ bận từ startHour đến endHour (24 = nửa đêm 00:00). */
     private TutorBusyTimeRequest.TimeRange range(int startHour, int endHour) {
         TutorBusyTimeRequest.TimeRange r = new TutorBusyTimeRequest.TimeRange();
         r.setStartTime(LocalTime.of(startHour, 0));
