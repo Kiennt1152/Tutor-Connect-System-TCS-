@@ -125,7 +125,7 @@ public class AiReferenceCardService {
                 .avatarUrl(t.getAvatar())
                 .title(t.getBio() != null && t.getBio().length() > 60 ? t.getBio().substring(0, 60) + "..." : t.getBio())
                 .hourlyRate(t.getHourlyRate())
-                .averageRating(t.getRatingAvg() != null ? t.getRatingAvg().doubleValue() : 5.0)
+                .averageRating(t.getRatingAvg() != null ? t.getRatingAvg().doubleValue() : 0.0)
                 .teachingAreas(t.getAddress())
                 .build()).collect(Collectors.toList());
     }

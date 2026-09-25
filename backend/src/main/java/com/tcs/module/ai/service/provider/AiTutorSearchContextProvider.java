@@ -134,7 +134,7 @@ public class AiTutorSearchContextProvider {
                     t.getAddress() != null ? t.getAddress() : "Chưa cập nhật",
                     t.getHourlyRate() != null ? String.format(Locale.US, "%,d", t.getHourlyRate().longValue()) : "Thỏa thuận",
                     t.getExperienceYears() != null ? t.getExperienceYears().toString() : "0",
-                    t.getRatingAvg() != null ? t.getRatingAvg().toString() : "5.0",
+                    t.getRatingAvg() != null ? t.getRatingAvg().toString() : "0.0",
                     t.getBio() != null ? t.getBio() : "");
 
             results.add(AiSourceResponse.builder()

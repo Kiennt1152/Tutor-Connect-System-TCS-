@@ -819,7 +819,7 @@ export default function PlatformAnalyticsPage() {
                         {formatVnd(tutor.availableBalance)}
                       </td>
                       <td style={{ textAlign: 'center', fontWeight: 600, color: '#f59e0b' }}>
-                        ★ {tutor.averageRating?.toFixed(1) || '5.0'}
+                        ★ {tutor.averageRating?.toFixed(1) ?? '0.0'}
                       </td>
                     </tr>
                   ))

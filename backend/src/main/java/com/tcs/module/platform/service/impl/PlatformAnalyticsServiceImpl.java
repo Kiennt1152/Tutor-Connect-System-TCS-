@@ -494,7 +494,7 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
                   .append(t.getPendingWithdrawals() != null ? t.getPendingWithdrawals() : "0").append(",")
                   .append(t.getEscrowHolding() != null ? t.getEscrowHolding() : "0").append(",")
                   .append(t.getAvailableBalance() != null ? t.getAvailableBalance() : "0").append(",")
-                  .append(t.getAverageRating() != null ? t.getAverageRating() : "5.0").append("\n");
+                  .append(t.getAverageRating() != null ? t.getAverageRating() : "0.0").append("\n");
             }
         } else if ("clients".equalsIgnoreCase(type)) {
             sb.append("ID,Họ tên,Email,Số điện thoại,Tổng lớp đăng ký,Lớp đang học,Lớp hoàn thành,Tổng tiền nạp (VND),Tổng hoàn tiền (VND),Ký quỹ bảo vệ (VND),Số dư ví (VND)\n");
@@ -777,7 +777,7 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
                     .filter(java.util.Objects::nonNull)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-            Double averageRating = 5.0;
+            Double averageRating = 0.0;
             if (tutor.getUser() != null) {
                 List<Review> reviews = reviewRepository.findByReviewee_UserId(tutor.getUser().getUserId());
                 if (!reviews.isEmpty()) {
@@ -786,7 +786,7 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
                             .filter(java.util.Objects::nonNull)
                             .mapToDouble(BigDecimal::doubleValue)
                             .average()
-                            .orElse(5.0);
+                            .orElse(0.0);
                 }
             }
 
