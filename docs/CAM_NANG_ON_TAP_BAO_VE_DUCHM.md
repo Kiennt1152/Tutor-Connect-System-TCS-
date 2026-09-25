@@ -32,14 +32,161 @@
 ---
 
 # MỤC LỤC
-1. [PHẦN 1: BẢNG MA TRẬN TRA CỨU NHANH 6 TẦNG (CHEAT SHEET MATRIX)](#phần-1-bảng-ma-trận-tra-cứu-nhanh-6-tầng-cheat-sheet-matrix)
-2. [PHẦN 2: GIẢI PHẪU CHI TIẾT TỪNG LUỒNG CODE THỰC CHIẾN 6 TẦNG](#phần-2-giải-phẫu-chi-tiết-từng-luồng-code-thực-chiến-6-tầng)
+1. [PHẦN 0: BẢN NGUYÊN & GIẢI MÃ BẢN CHẤT 6 TẦNG KIẾN TRÚC ENTERPRISE SPRING BOOT](#phần-0-bản-nguyên--giải-mã-bản-chất-6-tầng-kiến-trúc-enterprise-spring-boot)
+2. [PHẦN 1: BẢNG MA TRẬN TRA CỨU NHANH 6 TẦNG (CHEAT SHEET MATRIX)](#phần-1-bảng-ma-trận-tra-cứu-nhanh-6-tầng-cheat-sheet-matrix)
+3. [PHẦN 2: GIẢI PHẪU CHI TIẾT TỪNG LUỒNG CODE THỰC CHIẾN 6 TẦNG](#phần-2-giải-phẫu-chi-tiết-từng-luồng-code-thực-chiến-6-tầng)
    - [CHƯƠNG 1: PHÂN HỆ HỖ TRỢ KHÁCH HÀNG (BF-09)](#chương-1-phân-hệ-hỗ-trợ-khách-hàng-bf-09)
    - [CHƯƠNG 2: PHÂN HỆ ĐIỀU HÀNH SÀN & BẢO MẬT (BF-10)](#chương-2-phân-hệ-điều-hành-sàn--bảo-mật-bf-10)
-   - [CHƯƠNG 3: TRỢ LÝ ẢO AI UNIVERSAL RAG 12 BƯỚC (UC-65)](#chương-3-trợ-lý-ảo-ai-universal-rag-12-bước-uc-65)
+   - [CHƯƠNG 3: TRỢ LÝ ẢO AI UNIVERSAL RAG 12 BƯỚC (UC-65)](#chương-3-trỢ-lý-ảo-ai-universal-rag-12-bước-uc-65)
    - [CHƯƠNG 4: HỢP ĐỒNG ĐIỆN TỬ OTP & HỒ SƠ 3 VAI TRÒ (UC-44, M4, UC-08)](#chương-4-hợp-đồng-điện-tử-otp--hồ-sơ-3-vai-trò-uc-44-m4-uc-08)
-3. [PHẦN 3: KỊCH BẢN THUYẾT TRÌNH MẪU "CHỈ CODE 6 BƯỚC"](#phần-3-kịch-bản-thuyết-trình-mẫu-chỉ-code-6-bước)
-4. [PHẦN 4: BỘ CÂU HỎI PHẢN BIỆN "BẪY" CỦA HỘI ĐỒNG & CÂU TRẢ LỜI MẪU](#phần-4-bộ-câu-hỏi-phản-biện-bẫy-của-hội-đồng--câu-trả-lời-mẫu)
+4. [PHẦN 3: KỊCH BẢN THUYẾT TRÌNH MẪU "CHỈ CODE 6 BƯỚC"](#phần-3-kịch-bản-thuyết-trình-mẫu-chỉ-code-6-bước)
+5. [PHẦN 4: BỘ CÂU HỎI PHẢN BIỆN "BẪY" CỦA HỘI ĐỒNG & CÂU TRẢ LỜI MẪU](#phần-4-bộ-câu-hỏi-phản-biện-bẫy-của-hội-đồng--câu-trả-lời-mẫu)
+
+---
+
+# PHẦN 0: BẢN NGUYÊN & GIẢI MÃ BẢN CHẤT 6 TẦNG KIẾN TRÚC ENTERPRISE SPRING BOOT
+*(Phần này giải thích tường minh vì sao phải chia 6 tầng, mỗi tầng làm gì, dữ liệu biến đổi ra sao để bạn trả lời hội đồng với phong thái của một Senior Developer)*
+
+---
+
+### 🏛️ TỔNG QUAN VÒNG ĐỜI DỮ LIỆU 6 TẦNG (END-TO-END DATA LIFECYCLE)
+
+Khi người dùng thực hiện một hành động (ví dụ: bấm nút "Gửi yêu cầu hỗ trợ" trên web), dòng dữ liệu không đi thẳng vào database mà trải qua một chu trình chuyển hóa 6 bước nghiêm ngặt:
+
+1. **Frontend UI**: Thu thập input từ người dùng ➡️ Validate sơ bộ form ➡️ Đóng gói thành **JSON Payload** ➡️ Gửi qua giao thức HTTP (kèm Authorization Bearer Header chứa JWT Token).
+2. **REST Controller**: Cổng đón tiếp HTTP ➡️ Bộ lọc `JwtAuthenticationFilter` giải mã Token và xác thực danh tính ➡️ Spring ánh xạ JSON sang Java Object (**Request DTO**) ➡️ Kích hoạt Bean Validation (`@Valid`) ➡️ Ủy quyền xử lý cho Service Interface.
+3. **Service Interface**: Định nghĩa **Bản hợp đồng trừu tượng (Contract)** ➡️ Khai báo tên hàm, tham số nhận vào (`Request DTO`) và kết quả trả về (`Response DTO`) ➡️ Cách ly hoàn toàn Controller khỏi chi tiết triển khai bên trong.
+4. **Service Implementation**: **"Bộ não" nghiệp vụ** ➡️ Kiểm tra quyền người dùng (`AuthHelper`) ➡️ Áp dụng thuật toán (ép SLA, kiểm tra trùng lặp, tính điểm uy tín) ➡️ Quản lý Transaction (`@Transactional` đảm bảo tính toàn vẹn ACID) ➡️ Chuyển đổi DTO sang **Entity JPA** ➡️ Gọi Repository để lưu hoặc truy vấn.
+5. **Repository Interface**: **Cầu nối truy cập dữ liệu** ➡️ Kế thừa `JpaRepository` của Spring Data JPA ➡️ Tự động sinh câu lệnh SQL hoặc thực thi các câu truy vấn JPQL tùy biến (`@Query`) tối ưu chỉ mục ➡️ Chuyển đổi các dòng bản ghi trong MySQL thành đối tượng Entity Java.
+6. **Entity & Database Table**: **Tầng lưu trữ bền vững** ➡️ Các class Entity (`@Entity`, `@Table`) phản chiếu cấu trúc bảng MySQL ➡️ Ràng buộc khóa chính (`@Id`), khóa ngoại (`@ManyToOne`, `@JoinColumn`), chỉ mục và ràng buộc toàn vẹn.
+
+---
+
+### 🔍 GIẢI PHẪU CHI TIẾT TỪNG TẦNG KIẾN TRÚC
+
+#### 🌐 TẦNG 1: FRONTEND UI LAYER (TRẢI NGHIỆM & GIAO TIẾP MẠNG)
+* **Bản chất**: Ứng dụng Single Page Application (SPA) xây dựng bằng **React 19 & TypeScript**.
+* **Trách nhiệm chính**:
+  1. Render giao diện người dùng, xử lý trạng thái hiển thị (Loading spinner, Error banner, Success modal).
+  2. Validate định dạng người dùng nhập ngay tại Client (ví dụ: email đúng định dạng, ô bắt buộc không để trống) để giảm tải cho máy chủ.
+  3. Đính kèm Token JWT vào `Authorization: Bearer <token>` thông qua Axios Interceptor.
+  4. Nhận JSON Response từ backend và cập nhật UI thời gian thực (hiển thị thẻ Card, cập nhật bảng phân trang).
+* **Các file tiêu biểu trong code của bạn**:
+  - `MessagingPanel.tsx`: Form tạo ticket hỗ trợ.
+  - `PlatformTicketsPage.tsx`: Màn hình Admin quản lý danh sách Ticket, phản hồi, gộp ticket.
+  - `PlatformUsersPage.tsx`: Màn hình Admin quản lý tài khoản và khóa người dùng.
+  - `ContractDetailPage.tsx`: Màn hình chi tiết hợp đồng và modal nhập mã OTP ký số.
+
+---
+
+#### 🚪 TẦNG 2: REST CONTROLLER LAYER (CỔNG ĐÓN TIẾP & ĐỊNH TUYẾN)
+* **Bản chất**: Lớp giao tiếp trực tiếp với môi trường Web bên ngoài, tiếp nhận và phản hồi các HTTP Request.
+* **Trách nhiệm chính**:
+  1. **Định tuyến (Routing)**: Sử dụng `@RestController` và `@RequestMapping` để phân phối URL đến đúng phương thức xử lý.
+  2. **Ánh xạ dữ liệu (Data Binding)**: Sử dụng `@RequestBody` để tự động parse chuỗi JSON thành đối tượng DTO, `@PathVariable` để lấy ID trên URL, `@RequestParam` để lấy tham số phân trang, bộ lọc.
+  3. **Kiểm tra hợp lệ đầu vào (Input Validation)**: Dùng annotation `@Valid` kết hợp `@NotNull`, `@NotBlank`, `@Size` trên DTO. Nếu dữ liệu sai, Spring tự động quăng lỗi 400 Bad Request ngay tại cửa ngõ, không cho đi sâu vào tầng Service gây lãng phí tài nguyên.
+  4. **Quy chuẩn mã HTTP**: Trả về đúng HTTP Status Code: `200 OK`, `201 CREATED`, `401 UNAUTHORIZED`, `403 FORBIDDEN`, `404 NOT FOUND`.
+* **Quy tắc vàng của Controller**: **Tuyệt đối KHÔNG viết logic nghiệp vụ (No Business Logic in Controller)**. Controller chỉ làm nhiệm vụ "nghe lệnh, đón dữ liệu, gọi Service, trả kết quả".
+* **Các file tiêu biểu**:
+  - `MessagingController.java`: `@PostMapping("/tickets")`
+  - `PlatformController.java`: `@GetMapping("/tickets")`, `@PatchMapping("/users/{id}/status")`
+  - `ContractController.java`: `@PostMapping("/{id}/sign-otp")`
+
+---
+
+#### 📜 TẦNG 3: SERVICE INTERFACE LAYER (BẢN HỢP ĐỒNG TRỪU TƯỢNG - CONTRACT)
+* **Bản chất**: Tập hợp các khai báo hàm trừu tượng (`public interface`), không chứa code thực thi.
+* **Tại sao bắt buộc phải có Service Interface mà không dùng thẳng ServiceImpl?**
+  1. **Nguyên lý Dependency Inversion (Chữ D trong SOLID)**: Các module cấp cao (Controller) không nên phụ thuộc vào module cấp thấp (ServiceImpl), cả hai phải phụ thuộc vào sự trừu tượng (Interface).
+  2. **Giảm thiểu phụ thuộc chặt (Loose Coupling)**: Tầng Controller chỉ biết tên hàm và tham số cần truyền, hoàn toàn không cần biết bên trong ServiceImpl dùng MySQL, Redis hay gọi sang Microservice bên thứ ba.
+  3. **Hỗ trợ Kiểm thử Tự động (Unit Testing)**: Khi viết test cho Controller, lập trình viên có thể dễ dàng dùng `@MockBean PlatformService` để giả lập dữ liệu trả về mà không cần khởi động toàn bộ logic phức tạp của ServiceImpl hay kết nối Database thật.
+  4. **Tính mở rộng (Polymorphism)**: Sau này nếu muốn đổi logic xử lý (ví dụ: chuyển từ gửi OTP qua Email sang SMS hoặc WhatsApp), ta chỉ cần tạo thêm class `SmsContractServiceImpl` thực thi cùng `ContractService` mà không cần sửa 1 dòng code nào ở `ContractController`.
+* **Các file tiêu biểu**:
+  - `MessagingService.java`
+  - `PlatformService.java`
+  - `ContractService.java`
+
+---
+
+#### ⚙️ TẦNG 4: SERVICE IMPLEMENTATION LAYER (TRÁI TIM NGHIỆP VỤ - BUSINESS ENGINE)
+* **Bản chất**: Class được đánh dấu `@Service`, nơi chứa 100% logic thông minh, quy tắc nghiệp vụ và các thuật toán của dự án.
+* **Trách nhiệm chính**:
+  1. **Kiểm tra quyền hạn & Bảo mật nghiệp vụ**: Dùng `authHelper.currentUserId()` hoặc `authHelper.requireRole(PLATFORM_ADMIN)` để đảm bảo người gọi có đủ thẩm quyền thực hiện thao tác.
+  2. **Thực thi quy tắc nghiệp vụ (Business Rules)**:
+     - Thuật toán ép sàn mức ưu tiên (`escalatePriority`: `DISPUTE` ➡️ `URGENT`).
+     - Thuật toán tính hạn cam kết SLA (`dueAt = now + 4h`).
+     - 4 chốt chặn an toàn khi Gộp Ticket (kiểm tra cùng `userId`, kiểm tra trạng thái chưa đóng).
+     - Kiểm tra tư cách pháp lý khi ký hợp đồng (`assertSignerNotMinor()`, `assertSignerCccdComplete()`).
+     - Thuật toán tính lại điểm uy tín gia sư theo đánh giá cuối của từng lớp (`recomputeTutorReputation`).
+  3. **Quản lý Giao dịch CSDL (`@Transactional`)**: Đảm bảo nguyên lý ACID. Nếu một chuỗi thao tác gồm 5 bước (ví dụ: trừ tiền ví ➡️ tạo bản ghi giao dịch ➡️ chuyển trạng thái hợp đồng) bị lỗi ở bước thứ 4, `@Transactional` sẽ tự động **Rollback toàn bộ**, không bao giờ để xảy ra tình trạng tiền bị trừ mà hợp đồng chưa kích hoạt!
+  4. **Ánh xạ dữ liệu (Data Transformation)**: Chuyển đổi qua lại giữa `Request DTO` ➡️ `Entity JPA` để lưu CSDL, và từ `Entity JPA` ➡️ `Response DTO` để trả về cho Client (thông qua Mapper).
+  5. **Tích hợp liên phân hệ & Ghi nhật ký**: Kích hoạt sự kiện Spring Event (ví dụ: `publishContractSigned`), ghi vết kiểm toán bất biến qua `auditLogService.record(...)`, và phát thông báo thời gian thực qua `notificationDispatchService`.
+* **Các file tiêu biểu**:
+  - `MessagingServiceImpl.java`
+  - `PlatformServiceImpl.java`
+  - `ContractServiceImpl.java`
+  - `AiServiceImpl.java`
+
+---
+
+#### 🔌 TẦNG 5: REPOSITORY INTERFACE LAYER (CẦU NỐI TRUY CẬP DỮ LIỆU - DATA ACCESS)
+* **Bản chất**: Interface kế thừa `JpaRepository<T, ID>` của framework Spring Data JPA, là cầu nối trực tiếp giữa mã nguồn Java và hệ quản trị CSDL MySQL.
+* **Trách nhiệm chính & 3 Cơ chế truy vấn cốt lõi**:
+  1. **Phương thức CRUD có sẵn**: Spring Data JPA tự động sinh mã bytecode cho các thao tác chuẩn: `save()`, `findById()`, `findAll()`, `delete()`, `count()`, lập trình viên không phải viết một dòng lệnh SQL nào.
+  2. **Query Derivation (Tự động sinh SQL từ tên hàm)**:
+     Ví dụ: `findByUser_UserIdOrderByCreatedAtDesc(Long userId)` ➡️ Spring tự động phân tích tên hàm thành câu lệnh SQL:
+     ```sql
+     SELECT * FROM support_tickets WHERE user_id = ? ORDER BY created_at DESC;
+     ```
+  3. **Custom JPQL / Native Query (`@Query`)**: Dành cho các tác vụ nghiệp vụ phức tạp:
+     - Tìm kiếm đa tiêu chí kết hợp phân trang:
+       ```java
+       @Query("SELECT t FROM SupportTicket t WHERE (:status IS NULL OR t.status = :status) ...")
+       Page<SupportTicket> search(... Pageable pageable);
+       ```
+     - Quét các ticket vi phạm SLA:
+       ```java
+       @Query("SELECT t FROM SupportTicket t WHERE t.status NOT IN (:excludedStatuses) AND t.dueAt < :now AND t.slaBreached = false")
+       List<SupportTicket> findBreachedCandidateTickets(...);
+       ```
+* **Các file tiêu biểu**:
+  - `SupportTicketRepository.java`
+  - `TicketMessageRepository.java`
+  - `UserRepository.java`
+  - `ContractRepository.java`
+
+---
+
+#### 🗄️ TẦNG 6: ENTITY & DATABASE PERSISTENCE LAYER (LƯU TRỮ BỀN VỮNG)
+* **Bản chất**:
+  - Phía Java: Các class Entity được chú thích bằng JPA/Hibernate (`@Entity`, `@Table`).
+  - Phía CSDL: Các bảng vật lý trong MySQL Database lưu trữ dữ liệu bền vững trên ổ đĩa cứng.
+* **Trách nhiệm chính & Các Annotation cốt lõi**:
+  - `@Entity`: Báo cho Spring Boot biết đây là một thực thể CSDL cần được quản lý.
+  - `@Table(name = "support_tickets")`: Khai báo tên bảng vật lý tương ứng trong MySQL.
+  - `@Id` & `@GeneratedValue(strategy = GenerationType.IDENTITY)`: Định nghĩa khóa chính tự động tăng (Auto-increment Primary Key).
+  - `@Enumerated(EnumType.STRING)`: Ép các Enum (như `OPEN`, `IN_PROGRESS`, `URGENT`) lưu xuống database dưới dạng chuỗi văn bản rõ ràng thay vì số nguyên (0, 1, 2), giúp quản trị viên mở MySQL Workbench lên đọc hiểu dữ liệu tức thì.
+  - `@ManyToOne` & `@JoinColumn(name = "user_id")`: Thiết lập quan hệ khóa ngoại (Foreign Key) đảm bảo tính toàn vẹn tham chiếu giữa bảng con và bảng cha.
+* **Các Entity & Bảng tiêu biểu**:
+  - `SupportTicket.java` ➡️ Bảng `support_tickets`
+  - `TicketMessage.java` ➡️ Bảng `ticket_messages`
+  - `User.java` ➡️ Bảng `users`
+  - `Contract.java` ➡️ Bảng `contracts`
+  - `AuditLog.java` ➡️ Bảng `audit_logs`
+
+---
+
+### 📊 BẢNG TỔNG KẾT: "NẾU THIẾU TẦNG NÀY THÌ HỆ THỐNG SẼ BỊ GÌ?"
+*(Bảng này giúp bạn đối đáp cực kỳ thông minh khi thầy cô hỏi vặn về vai trò của từng tầng)*
+
+| Tầng Kiến Trúc | Nếu KHÔNG có tầng này thì hậu quả là gì? |
+| :--- | :--- |
+| **Tầng 1: Frontend UI** | Người dùng không có giao diện trực quan, phải dùng Postman hoặc Terminal gõ cURL để gọi API. |
+| **Tầng 2: Controller** | Hệ thống không thể tiếp nhận request từ Internet, không kiểm soát được URL, không có chốt chặn validate đầu vào sơ bộ. |
+| **Tầng 3: Service Interface** | Vi phạm nguyên lý SOLID (Dependency Inversion), Controller phụ thuộc chặt vào ServiceImpl, cực kỳ khó viết Unit Test Mock dữ liệu và không thể mở rộng đa giải pháp. |
+| **Tầng 4: Service Impl** | Hệ thống không có "bộ não" kiểm tra nghiệp vụ, không bảo vệ được dữ liệu qua `@Transactional`, để mặc người dùng gửi dữ liệu sai gây sập database. |
+| **Tầng 5: Repository Interface** | Lập trình viên phải tự viết mã JDBC thủ công (`Connection`, `PreparedStatement`, `ResultSet`), code dài gấp 10 lần, dễ dính lỗ hổng SQL Injection và không tận dụng được cơ chế Cache/Phân trang của Hibernate. |
+| **Tầng 6: Entity & Database** | Dữ liệu chỉ nằm trên RAM máy chủ, khi tắt server hoặc khởi động lại máy là mất sạch toàn bộ thông tin người dùng và giao dịch. |
 
 ---
 
