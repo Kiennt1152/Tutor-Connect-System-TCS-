@@ -19,11 +19,13 @@ interface Props {
   readonly bare?: boolean;
 }
 
+/** Khối giải thích cách tính % phù hợp theo các tiêu chí đang dùng và trọng số (có thể thu gọn). */
 export function FormulaExplainer({ criteria, defaultOpen = true, bare = false }: Props) {
   const shares = criteriaShares(criteria);
   const kept = CRITERIA_KEYS.filter((k) => criteria.weights[k] > 0);
   const maxScore = CRITERIA_KEYS.reduce((sum, k) => sum + shares[k].cap, 0);
 
+  /** Nội dung giải thích: phần trăm mỗi tiêu chí chiếm và điểm tối đa lớp có thể đạt. */
   const body = (
     <div className="fx__body">
       <p className="fx__lead">

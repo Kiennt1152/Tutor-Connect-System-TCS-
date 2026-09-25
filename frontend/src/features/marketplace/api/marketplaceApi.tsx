@@ -36,9 +36,11 @@ export const marketplaceApi = {
   http: axiosClient,
   basePath: MARKETPLACE_API_BASE,
 
+  /** Lấy các tin/lớp do người đăng nhập tạo. */
   listMyClasses: () =>
     axiosClient.get<ClassResponse[]>('/marketplace/classes/mine').then((r) => r.data),
 
+  /** Lấy các lớp đang mở (OPEN) cho màn tìm lớp. */
   listOpenClasses: () =>
     axiosClient
       .get<ClassResponse[]>('/marketplace/classes', { params: { status: 'OPEN' } })
@@ -51,6 +53,7 @@ export const marketplaceApi = {
   listBoardClasses: () =>
     axiosClient.get<ClassResponse[]>('/marketplace/classes/board').then((r) => r.data),
 
+  /** Gia sư nộp đơn ứng tuyển với học phí đề xuất từng môn và thư ngỏ. */
   applyToClass: (
     classId: number,
     payload: { proposedRates: Record<string, number>; coverLetter?: string },
@@ -59,6 +62,7 @@ export const marketplaceApi = {
       .post<{ message: string }>(`/marketplace/classes/${classId}/apply`, payload)
       .then((r) => r.data),
 
+  /** Id các lớp gia sư đã ứng tuyển (đơn còn hiệu lực). */
   listMyAppliedClassIds: () =>
     axiosClient.get<number[]>('/marketplace/applications/mine').then((r) => r.data),
 
@@ -68,6 +72,7 @@ export const marketplaceApi = {
       .get<ClassBusyConflict[]>('/marketplace/busy-conflicts', { params: { classIds: classIds.join(',') } })
       .then((r) => r.data),
 
+  /** Hồ sơ của người đăng nhập (dùng lấy trạng thái xác minh và mức phí gợi ý). */
   getMyTutorProfile: () =>
     axiosClient.get<TutorProfileCard>('/profile/me').then((r) => r.data),
 
@@ -78,24 +83,29 @@ export const marketplaceApi = {
   createClass: (payload: ClassRequestPayload) =>
     axiosClient.post<ClassResponse>('/marketplace/classes', payload).then((r) => r.data),
 
+  /** Chủ lớp sửa tin tìm gia sư. */
   updateClass: (classId: number, payload: ClassRequestPayload) =>
     axiosClient.put<ClassResponse>(`/marketplace/classes/${classId}`, payload).then((r) => r.data),
 
+  /** Đăng lớp (Nháp -> Đang mở). */
   publishClass: (classId: number) =>
     axiosClient
       .post<ClassResponse>(`/marketplace/classes/${classId}/publish`)
       .then((r) => r.data),
 
+  /** Gỡ đăng lớp (Đang mở -> Nháp). */
   unpublishClass: (classId: number) =>
     axiosClient
       .post<ClassResponse>(`/marketplace/classes/${classId}/unpublish`)
       .then((r) => r.data),
 
+  /** Danh sách ứng viên của lớp (đã chấm điểm, xếp hạng). */
   listApplicants: (classId: number) =>
     axiosClient
       .get<ApplicantResponse[]>(`/marketplace/classes/${classId}/applications`)
       .then((r) => r.data),
 
+  /** Chủ lớp chọn một ứng viên cho lớp. */
   chooseApplicant: (classId: number, applicationId: number) =>
     axiosClient
       .post<{ message: string }>(
@@ -103,6 +113,7 @@ export const marketplaceApi = {
       )
       .then((r) => r.data),
 
+  /** Chủ lớp từ chối một ứng viên kèm lý do. */
   rejectApplicant: (classId: number, applicationId: number, reason: string) =>
     axiosClient
       .post<{ message: string }>(
@@ -111,31 +122,37 @@ export const marketplaceApi = {
       )
       .then((r) => r.data),
 
+  /** Danh mục môn học. */
   listSubjects: () =>
     axiosClient
       .get<CatalogItemDto[]>('/catalog/subjects')
       .then((r) => r.data.map(toOption)),
 
+  /** Danh mục khối lớp, sắp theo số lớp tăng dần. */
   listGrades: () =>
     axiosClient
       .get<CatalogItemDto[]>('/catalog/grades')
       .then((r) => r.data.map(toOption).sort(compareGrade)),
 
+  /** Danh mục tỉnh/thành. */
   listProvinces: () =>
     axiosClient
       .get<CatalogItemDto[]>('/catalog/provinces')
       .then((r) => r.data.map(toOption)),
 
+  /** Danh mục quận/huyện của một tỉnh. */
   listDistricts: (provinceId: number) =>
     axiosClient
       .get<CatalogItemDto[]>('/catalog/districts', { params: { provinceId } })
       .then((r) => r.data.map(toOption)),
 
+  /** Danh mục phường/xã của một quận. */
   listWards: (districtId: number) =>
     axiosClient
       .get<CatalogItemDto[]>('/catalog/wards', { params: { districtId } })
       .then((r) => r.data.map(toOption)),
 
+  /** Danh sách địa điểm có sẵn của một tỉnh. */
   listLocations: (provinceId: number) =>
     axiosClient
       .get<LocationDto[]>('/catalog/locations', { params: { provinceId } })
@@ -212,15 +229,18 @@ export const marketplaceApi = {
   },
 };
 
+/** Đổi mục danh mục từ API sang dạng lựa chọn dùng trong form. */
 function toOption(dto: CatalogItemDto): CatalogOption {
   return { id: dto.id, name: dto.name, description: dto.description ?? null };
 }
 
+/** Số lớp trong tên khối ("Lớp 9" -> 9); khối không có số thì null. */
 function gradeNumber(name: string): number | null {
   const match = /^Lớp\s+(\d+)/.exec(name.trim());
   return match ? Number(match[1]) : null;
 }
 
+/** So sánh để sắp khối lớp: khối có số theo thứ tự tăng dần, rồi đến khối khác theo tên. */
 function compareGrade(a: CatalogOption, b: CatalogOption): number {
   const na = gradeNumber(a.name);
   const nb = gradeNumber(b.name);

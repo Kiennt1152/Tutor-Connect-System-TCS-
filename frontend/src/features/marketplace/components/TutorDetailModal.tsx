@@ -10,6 +10,7 @@ interface Props {
   readonly onClose: () => void;
 }
 
+/** Pop-up hồ sơ chi tiết của một ứng viên cho chủ lớp (thông tin, học phí từng môn, thư ngỏ). */
 export function TutorDetailModal({ applicant: a, subjectName, onClose }: Props) {
   const fullName = a.fullName?.trim() || 'Gia sư';
   const initials = fullName

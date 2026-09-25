@@ -15,6 +15,7 @@ interface Props {
   readonly onChange: (value: { province: string; ward: string }) => void;
 }
 
+/** Sắp danh sách tỉnh/phường theo tên tiếng Việt. */
 function sortByName(list: GeoItem[]): GeoItem[] {
   return [...list].sort((a, b) => a.name.localeCompare(b.name, 'vi'));
 }
@@ -42,6 +43,7 @@ export function ProvinceWardPicker({ province, ward, disabled, onChange }: Props
     };
   }, []);
 
+  /** Tỉnh đang chọn trong danh sách (so khớp tên đã chuẩn hoá). */
   const selectedProvince = useMemo(() => {
     const key = provinceKey(province);
     if (!key) return null;
@@ -63,6 +65,7 @@ export function ProvinceWardPicker({ province, ward, disabled, onChange }: Props
     };
   }, [selectedProvince]);
 
+  /** Tên phường đang chọn đúng như trong danh sách (so khớp tên đã chuẩn hoá). */
   const selectedWardName = useMemo(() => {
     const key = wardKey(ward);
     if (!key) return '';

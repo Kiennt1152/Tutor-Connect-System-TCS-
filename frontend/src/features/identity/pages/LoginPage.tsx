@@ -39,6 +39,7 @@ type GoogleOAuth2 = {
   initTokenClient: (config: {
     client_id: string;
     scope: string;
+    /** Hàm Google gọi lại sau khi người dùng chọn tài khoản (trả về access token hoặc lỗi). */
     callback: (response: TokenResponse) => void;
   }) => TokenClient;
 };
@@ -61,6 +62,7 @@ function loadGsiScript(): Promise<void> {
   });
 }
 
+/** Thanh đầu trang đăng nhập (logo + link về trang chủ). */
 function Header() {
   return (
     <header className="reg-header">
@@ -77,6 +79,7 @@ function Header() {
   );
 }
 
+/** Icon con mắt để ẩn/hiện mật khẩu. */
 function EyeIcon({ off }: { off: boolean }) {
   const common = {
     width: 18,
@@ -102,6 +105,7 @@ function EyeIcon({ off }: { off: boolean }) {
   );
 }
 
+/** Logo Google trên nút đăng nhập. */
 function GoogleIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
@@ -163,6 +167,9 @@ export default function LoginPage() {
     tokenClientRef.current = google.accounts.oauth2.initTokenClient({
       client_id: GOOGLE_CLIENT_ID as string,
       scope: 'openid email profile',
+      /**
+       * Nhận access token từ Google, gửi lên server đăng nhập; tài khoản mới thì chuyển sang bước chọn vai trò + số điện thoại.
+       */
       callback: async (response) => {
         if (response.error || !response.access_token) {
           setError('Đăng nhập Google bị hủy hoặc thất bại.');
@@ -200,6 +207,7 @@ export default function LoginPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /** Bấm "Đăng nhập với Google": kiểm tra cấu hình Client ID, tải thư viện Google rồi mở cửa sổ chọn tài khoản. */
   async function handleGoogleClick() {
     if (!GOOGLE_CLIENT_ID) {
       setError('Đăng nhập Google chưa được cấu hình (thiếu VITE_GOOGLE_CLIENT_ID).');
@@ -260,6 +268,7 @@ export default function LoginPage() {
     }
   }
 
+  /** Hoàn tất đăng ký bằng Google: gửi vai trò + số điện thoại, thành công thì đăng nhập luôn. */
   async function handleCompleteGoogleSignup(e: FormEvent) {
     e.preventDefault();
     if (!googlePending) {

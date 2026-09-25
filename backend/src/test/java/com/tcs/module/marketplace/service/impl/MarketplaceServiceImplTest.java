@@ -1269,6 +1269,7 @@ class MarketplaceServiceImplTest {
 
     // ===================== Trùng thời gian bận gia sư tự đăng ký =====================
 
+    /** Tạo lịch bận giả của gia sư cho ngày mai trong khoảng giờ cho trước (để test cảnh báo/chặn trùng lịch bận). */
     private com.tcs.module.profile.entity.TutorBusyTime busyTomorrow(
             Tutor tutor, java.time.LocalTime start, java.time.LocalTime end) {
         com.tcs.module.profile.entity.TutorBusyTime busy = new com.tcs.module.profile.entity.TutorBusyTime();

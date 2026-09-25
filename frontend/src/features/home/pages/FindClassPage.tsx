@@ -66,6 +66,7 @@ import '../../marketplace/pages/MarketplacePage.css';
  *   thành "✓ Đã ứng tuyển".
  */
 
+/** Trang tìm lớp theo vai trò: gia sư/trung tâm dùng màn chấm điểm, còn lại xem danh sách lớp đang mở. */
 export default function FindClassPage() {
   const { user, isAuthenticated } = useAuth();
   const isTutor = hasAnyRole(user?.role, ['TUTOR', 'TUTOR_CENTER']);
@@ -76,6 +77,7 @@ export default function FindClassPage() {
   return <OpenClassListPage isAuthenticated={isAuthenticated} />;
 }
 
+/** Màn tìm lớp của gia sư: tải danh mục môn/khối/tỉnh rồi hiển thị TutorFindClass. */
 function TutorFindClassPage() {
   const [subjects, setSubjects] = useState<CatalogOption[]>([]);
   const [grades, setGrades] = useState<CatalogOption[]>([]);
@@ -114,6 +116,7 @@ function TutorFindClassPage() {
   );
 }
 
+/** Danh sách lớp đang mở (dùng khối ClassesSection của trang chủ) cho khách và client. */
 function OpenClassListPage({ isAuthenticated }: { isAuthenticated: boolean }) {
   const { status, classes, reload } = useOpenClasses();
   return (

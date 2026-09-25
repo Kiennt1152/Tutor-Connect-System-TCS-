@@ -1,11 +1,13 @@
 import { REVIEW_CRITERIA } from '../config/reviewCriteria';
 import type { ReviewCriterionScore } from '../types/reviewTypes';
 
+/** Nhãn của mức điểm trong một tiêu chí (ví dụ 5 -> "Luôn luôn đúng giờ"); không có thì "x/5". */
 function levelLabel(code: string, score: number): string {
   const config = REVIEW_CRITERIA.find((c) => c.code === code);
   return config?.levels.find((l) => l.score === score)?.label ?? `${score}/5`;
 }
 
+/** Đọc JSON điểm tiêu chí thành danh sách; lỗi thì rỗng. */
 function parse(criteriaJson: string | null): ReviewCriterionScore[] {
   if (!criteriaJson) return [];
   try {
@@ -16,6 +18,7 @@ function parse(criteriaJson: string | null): ReviewCriterionScore[] {
   }
 }
 
+/** Danh sách điểm từng tiêu chí của một đánh giá (câu hỏi + nhãn mức điểm). */
 export function CriteriaBreakdown({ criteriaJson }: { criteriaJson: string | null }) {
   const items = parse(criteriaJson);
   if (items.length === 0) return null;

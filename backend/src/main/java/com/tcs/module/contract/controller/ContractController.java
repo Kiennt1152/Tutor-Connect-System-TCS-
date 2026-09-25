@@ -128,28 +128,33 @@ public class ContractController {
         return contractService.saveRefundPayoutInfo(contractId, request);
     }
 
+    /** POST /api/contract/reviews/{reviewId}/reply — gia sư phản hồi đánh giá dành cho mình. */
     @PostMapping("/reviews/{reviewId}/reply")
     public ReviewResponse replyToReview(
             @PathVariable Long reviewId, @RequestBody ReplyReviewRequest request) {
         return contractService.replyToReview(reviewId, request);
     }
 
+    /** PUT /api/contract/reviews/{reviewId} — khách sửa đánh giá của mình. */
     @PutMapping("/reviews/{reviewId}")
     public ReviewResponse updateReview(
             @PathVariable Long reviewId, @RequestBody CreateReviewRequest request) {
         return contractService.updateReview(reviewId, request);
     }
 
+    /** GET /api/contract/reviews/reputation/{tutorId} — danh tiếng công khai của gia sư. */
     @GetMapping("/reviews/reputation/{tutorId}")
     public TutorReputationResponse getTutorReputation(@PathVariable Long tutorId) {
         return contractService.getTutorReputation(tutorId);
     }
 
+    /** GET /api/contract/reviews/my-reputation — danh tiếng của gia sư đang đăng nhập. */
     @GetMapping("/reviews/my-reputation")
     public TutorReputationResponse getMyTutorReputation() {
         return contractService.getMyTutorReputation();
     }
 
+    /** GET /api/contract/reviews/reviewable — lớp khách có thể/đã đánh giá. */
     @GetMapping("/reviews/reviewable")
     public List<ReviewableAssignmentResponse> getMyReviewableAssignments() {
         return contractService.getMyReviewableAssignments();

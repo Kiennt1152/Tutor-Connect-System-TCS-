@@ -50,6 +50,8 @@ export type ReviewResponse = {
   criteriaJson: string | null;
   classTitle: string | null;
   subjectName: string | null;
+  /** Các môn gia sư THỰC dạy ở lớp — dùng để gạch môn có trong tiêu đề mà gia sư không nhận. */
+  subjectNames: string[] | null;
   anonymous: boolean;
   reviewerDisplayName: string;
   createdAt: string;

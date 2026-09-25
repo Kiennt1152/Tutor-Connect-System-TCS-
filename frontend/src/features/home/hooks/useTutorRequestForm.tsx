@@ -25,6 +25,7 @@ export function useTutorRequestForm() {
     marketplaceApi.listProvinces().then(setProvinces).catch(() => setProvinces([]));
   }, []);
 
+  /** Tải danh sách địa điểm theo tỉnh (không chọn tỉnh thì xoá danh sách). */
   const loadLocations = useCallback((provinceId: number) => {
     if (!provinceId) {
       setLocations([]);
@@ -36,6 +37,7 @@ export function useTutorRequestForm() {
       .catch(() => setLocations([]));
   }, []);
 
+  /** Gửi tin tìm gia sư mới. */
   const createRequest = useCallback(
     (payload: ClassRequestPayload) => marketplaceApi.createClass(payload),
     [],

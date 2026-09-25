@@ -22,8 +22,10 @@ const WEIGHT_LABELS: { key: keyof MatchWeights; label: string; hint: string }[] 
 ];
 
 const WEIGHT_SCALE = ['Bỏ qua', 'Rất thấp', 'Thấp', 'Vừa', 'Cao', 'Rất cao'];
+/** Nhãn mức ưu tiên của thanh trượt (0–5). */
 const weightLabel = (v: number) => WEIGHT_SCALE[v] ?? '';
 
+/** Chuẩn hoá chuỗi để so khớp: bỏ dấu tiếng Việt, đổi đ -> d, chữ thường, cắt khoảng trắng. */
 const normalize = (s: string) =>
   s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/đ/g, 'd').trim();
 
@@ -88,9 +90,11 @@ interface QueryFilters {
   scheduleLead: 'day' | 'session';
 }
 
+/** Đổi từ đã bỏ dấu ("t2".."t7", "cn") thành mã thứ (T2..T7, CN); không phải thứ thì rỗng. */
 const dayCodeOf = (w: string): string =>
   /^t[2-7]$/.test(w) ? w.toUpperCase() : w === 'cn' ? 'CN' : '';
 
+/** Đổi từ đã bỏ dấu ("sang", "chieu", "toi") thành tên buổi. */
 const sessionOf = (w: string): string =>
   w === 'sang' ? 'Sáng' : w === 'chieu' ? 'Chiều' : w === 'toi' ? 'Tối' : '';
 
@@ -351,6 +355,7 @@ const clampFee = (raw: string): string => {
   return String(Math.max(FEE_FLOOR, n));
 };
 
+/** Định dạng số tiền kiểu Việt Nam, ví dụ "200.000đ". */
 export const money = (n: number) => `${n.toLocaleString('vi-VN')}đ`;
 
 /** "Tối T2" · lịch CUSTOM thì ghi ngày: "Tối 07/09". */
@@ -423,16 +428,20 @@ export function useClassSearch({
   /** Panel trọng số đóng = chấm trung bình cộng 5 tiêu chí; mở mới dùng mức tự kéo. */
   const [showWeights, setShowWeights] = useState(false);
 
+  /** Danh mục môn dùng để đọc câu tìm: lấy từ API, chưa có thì dùng danh sách dự phòng. */
   const effSubjects = useMemo(
     () => (subjects.length > 0 ? subjects : [...FALLBACK_SUBJECTS]),
     [subjects],
   );
+  /** Danh mục khối lớp dùng để đọc câu tìm: lấy từ API, chưa có thì dùng danh sách dự phòng. */
   const effGrades = useMemo(() => (grades.length > 0 ? grades : [...FALLBACK_GRADES]), [grades]);
 
+  /** Hàm tra tên môn theo id (môn "khác" hiện "Môn khác"). */
   const subjectName = useMemo(() => {
     const m = new Map(effSubjects.map((s) => [String(s.id), s.name]));
     return (id: string) => (isOtherSubject(id) ? 'Môn khác' : (m.get(id) ?? `#${id}`));
   }, [effSubjects]);
+  /** Hàm tra tên khối lớp theo id. */
   const gradeName = useMemo(() => {
     const m = new Map(effGrades.map((g) => [String(g.id), g.name]));
     return (id: string) => m.get(id) ?? '';
@@ -611,6 +620,7 @@ export function useClassSearch({
     });
   }
 
+  /** Đổi mức ưu tiên (0–5) của một tiêu chí; kết quả được chấm lại ngay. */
   const setWeight = (key: keyof MatchWeights, value: number) =>
     setCriteria((c) => ({ ...c, weights: { ...c.weights, [key]: value } }));
 
@@ -620,6 +630,7 @@ export function useClassSearch({
     setSubmitSeq((n) => n + 1);
   }
 
+  /** Xoá câu tìm và mọi tiêu chí đã đọc (môn, khối, địa điểm, học phí, lịch) — quay về danh sách đầy đủ. */
   function clearSearch() {
     setQuery('');
     setSubmittedQuery('');
@@ -634,6 +645,7 @@ export function useClassSearch({
     setOtherText('');
   }
 
+  /** Giao diện thanh tìm: ô gõ câu, các chip tiêu chí đã nhận ra và bảng "Mức độ ưu tiên khi tìm" với 5 thanh trượt. */
   const bar = (
     <>
         <div className="tfc-search">

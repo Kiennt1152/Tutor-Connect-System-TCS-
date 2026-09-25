@@ -50,6 +50,7 @@ public class MatchContractDeadlineScheduler {
     private final ContractSignatureRepository contractSignatureRepository;
     private final EscrowTransactionRepository escrowTransactionRepository;
     private final NotificationDispatchService notificationDispatchService;
+    private final com.tcs.module.marketplace.service.ClassTitleService classTitleService;
 
     /** Khớp hạn hiển thị lớp OPEN ở {@code MarketplaceServiceImpl}. */
     private static final long CLASS_DISPLAY_DAYS = 30;
@@ -128,8 +129,16 @@ public class MatchContractDeadlineScheduler {
         }
 
         // Trả lớp về đúng nội dung/học phí trước khi áp giá của gia sư vừa bị hủy.
+        // Hỏi trước khi ghi đè detailsJson: sau đó danh sách môn đã khác, không đối chiếu được nữa.
+        boolean titleFollowsSubjects =
+                classTitleService.isAutoTitle(c.getTitle(), c.getDetailsJson(), c.getSubject());
         if (c.getPreMatchDetailsJson() != null) {
             c.setDetailsJson(c.getPreMatchDetailsJson());
+            // Lúc chọn gia sư, tên lớp đã rút về đúng môn gia sư nhận dạy. Giờ lớp mở lại với đủ môn
+            // ban đầu nên tên cũng phải nở lại, nếu không gia sư mới sẽ đọc tin thiếu môn.
+            if (titleFollowsSubjects) {
+                c.setTitle(classTitleService.autoTitle(c.getDetailsJson(), c.getSubject()));
+            }
         }
         if (c.getPreMatchTuitionFee() != null) {
             c.setTuitionFee(c.getPreMatchTuitionFee());
@@ -149,6 +158,7 @@ public class MatchContractDeadlineScheduler {
         return true;
     }
 
+    /** Gỡ hạn 48 giờ của lớp (khi không còn gì để huỷ). */
     private void clearDeadline(TutoringClass c) {
         c.setMatchDeadlineAt(null);
         tutoringClassRepository.save(c);
@@ -168,6 +178,7 @@ public class MatchContractDeadlineScheduler {
         contractRepository.delete(contract);
     }
 
+    /** Báo khi hợp đồng hết hạn 48 giờ: chủ lớp, gia sư đã chọn và các gia sư trong danh sách chờ (lớp đã mở lại). */
     private void notifyCancelled(TutoringClass c, TutorApplication chosen) {
         String title = "Hợp đồng hết hạn 48 giờ - lớp đã mở lại";
 
@@ -200,6 +211,7 @@ public class MatchContractDeadlineScheduler {
         }
     }
 
+    /** Gửi một thông báo loại APPLICATION về lớp cho một người. */
     private void notify(TutoringClass c, User user, String title, String content) {
         notificationDispatchService.notifyUserFromTemplate(
                 user,

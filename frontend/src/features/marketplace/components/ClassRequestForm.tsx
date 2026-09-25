@@ -69,6 +69,7 @@ interface ClassRequestFormProps {
 
 const currency = new Intl.NumberFormat('vi-VN');
 
+/** Danh sách mốc giờ "HH:mm" từ min đến max theo bước (mặc định 30 phút) cho ô chọn giờ; luôn có mốc max ở cuối. */
 function buildTimeSlots(min: string, max: string, stepMinutes = 30): string[] {
   const out: string[] = [];
   const maxMin = endMinutes(max);
@@ -82,6 +83,7 @@ function buildTimeSlots(min: string, max: string, stepMinutes = 30): string[] {
   return out;
 }
 
+/** Tạo một khung học trống cho môn (chưa có thứ/ngày, buổi, giờ). */
 function emptySlot(subjectId: string): ScheduleSlot {
   return { subjectId, day: '', date: '', session: '', start: '', end: '' };
 }
@@ -89,6 +91,7 @@ function emptySlot(subjectId: string): ScheduleSlot {
 const WEEKLY_DEFAULT_START = '06:00';
 const WEEKLY_DEFAULT_END = '08:00';
 
+/** Suy ra buổi (Sáng/Chiều/Tối) từ giờ bắt đầu. */
 function sessionFromStart(start: string): string {
   if (!start) return '';
   if (start < '12:00') return 'Sáng';
@@ -96,17 +99,20 @@ function sessionFromStart(start: string): string {
   return 'Tối';
 }
 
+/** Đổi số phút trong ngày thành chuỗi "HH:mm". */
 function minutesToTime(mins: number): string {
   const h = Math.floor(mins / 60);
   const m = mins % 60;
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
+/** Chặn gõ ký tự không phải chữ số vào ô nhập (dùng cho ô học phí). */
 function blockNonDigits(e: FormEvent<HTMLInputElement>) {
   const data = (e.nativeEvent as InputEvent).data;
   if (data && /\D/.test(data)) e.preventDefault();
 }
 
+/** Các khoảng giờ đã bị khung học khác chiếm trong cùng thứ/ngày (bỏ qua khung đang sửa) — để tránh xếp trùng. */
 function busyRangesOf(
   slots: ScheduleSlot[],
   index: number,
@@ -119,6 +125,7 @@ function busyRangesOf(
     .map((o) => ({ start: o.start, end: o.end }));
 }
 
+/** Buổi (Sáng/Chiều/Tối) đã bị các khung khác chiếm kín chưa — để ẩn/khoá lựa chọn buổi đó. */
 function sessionFullyBusy(
   session: (typeof SESSION_OPTIONS)[number],
   busy: { start: string; end: string }[],
@@ -129,6 +136,7 @@ function sessionFullyBusy(
   );
 }
 
+/** Nhãn thời lượng của khung học, ví dụ "1 giờ 30 phút"; giờ không hợp lệ thì chuỗi rỗng. */
 function durationLabel(start: string, end: string): string {
   if (!start || !end || endMinutes(end) <= toMinutes(start)) return '';
   const mins = endMinutes(end) - toMinutes(start);
@@ -153,6 +161,10 @@ const UNIVERSITY_ENTRANCE_SUBJECTS = [
 
 const SCHOOL_GRADE_PATTERN = /^Lớp ([1-9]|1[0-2])$/;
 
+/**
+ * Khối lớp có hợp với các môn đã chọn không: khối "chứng chỉ" chỉ đi với Tiếng Anh/môn chứng chỉ,
+ * khối "Đại học" chỉ đi với môn thi đại học; các khối khác luôn hợp.
+ */
 function gradeMatchesSubjects(gradeName: string, subjectNames: string[]): boolean {
   const isCert = gradeName.toLowerCase().includes('chứng chỉ');
   const isUniversity = gradeName.includes('Đại học');
@@ -164,6 +176,10 @@ function gradeMatchesSubjects(gradeName: string, subjectNames: string[]): boolea
   return subjectNames.some((s) => UNIVERSITY_ENTRANCE_SUBJECTS.includes(s));
 }
 
+/**
+ * Form tạo/sửa tin tìm gia sư (dùng chung cho client và yêu cầu gửi trung tâm): chọn môn, khối,
+ * địa điểm, lịch học theo tuần hoặc theo ngày, thời lượng, học phí từng môn; kiểm tra hợp lệ rồi gọi onSubmit.
+ */
 export function ClassRequestForm({
   initial,
   subjects,
@@ -188,10 +204,12 @@ export function ClassRequestForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [freeTextSubjects]);
 
+  /** Cập nhật một trường của form. */
   function set<K extends keyof ClassFormValues>(key: K, value: ClassFormValues[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
+  /** Đổi lựa chọn thời lượng khoá học (tháng / học kỳ / quý / năm) thành cặp kỳ thanh toán + đơn vị thời lượng. */
   function setDurationChoice(choice: DurationChoice) {
     setForm((prev) => {
       switch (choice) {
@@ -207,6 +225,7 @@ export function ClassRequestForm({
     });
   }
 
+  /** Chuyển giữa lịch lặp hàng tuần và lịch theo ngày cụ thể; chỉ giữ các khung học hợp với chế độ mới. */
   function setScheduleMode(mode: ScheduleMode) {
     setForm((prev) => {
       if (prev.scheduleMode === mode) return prev;
@@ -215,11 +234,13 @@ export function ClassRequestForm({
     });
   }
 
+  /** Tên hiển thị của môn theo mã (môn "khác" lấy tên người dùng gõ). */
   const subjName = (id: string) =>
     isOtherSubject(id)
       ? form.subjectOthers[id]?.trim() || 'Môn học khác'
       : (subjects.find((s) => String(s.id) === id)?.name ?? id);
   const otherIds = form.subjectIds.filter(isOtherSubject);
+  /** Nhãn thứ trong tuần (T2…CN) theo giá trị. */
   const dayLabel = (v: string) => DAY_OF_WEEK_OPTIONS.find((d) => d.value === v)?.label ?? v;
   const isWeekly = form.scheduleMode === 'WEEKLY';
   const knownSubjectNames = form.subjectIds.filter((id) => !isOtherSubject(id)).map(subjName);
@@ -238,6 +259,7 @@ export function ClassRequestForm({
     freeTextSubjects || hasUnknownSubject
       ? gradeOptions
       : gradeOptions.filter((g) => gradeMatchesSubjects(g.name, knownSubjectNames));
+  /** Chọn khối lớp. */
   function handleGradeChange(gradeId: string) {
     setForm((prev) => ({ ...prev, gradeId }));
   }
@@ -248,6 +270,7 @@ export function ClassRequestForm({
     addressDetail: form.address,
   };
 
+  /** Nhận tỉnh/phường/địa chỉ chi tiết từ ô chọn địa điểm và xoá các mã địa điểm cũ. */
   function handleLocationChange(v: LocationValue) {
     setForm((prev) => ({
       ...prev,
@@ -261,6 +284,10 @@ export function ClassRequestForm({
     }));
   }
 
+  /**
+   * Chọn/bỏ chọn một môn: thêm hoặc xoá khung học và ô học phí của môn đó;
+   * bỏ khối lớp đã chọn nếu không còn hợp với các môn mới.
+   */
   function toggleSubject(id: string) {
     setForm((prev) => {
       const removing = prev.subjectIds.includes(id);
@@ -286,6 +313,7 @@ export function ClassRequestForm({
     });
   }
 
+  /** Thêm một ô môn "khác" để người dùng tự gõ tên môn (kèm ô học phí, và khung học nếu đang ở lịch theo ngày). */
   function addOtherSubject() {
     setForm((prev) => {
       const id = newOtherSubjectId();
@@ -301,6 +329,7 @@ export function ClassRequestForm({
     });
   }
 
+  /** Xoá một môn "khác" cùng học phí và các khung học của nó. */
   function removeOtherSubject(id: string) {
     setForm((prev) => {
       const subjectOthers = { ...prev.subjectOthers };
@@ -317,10 +346,12 @@ export function ClassRequestForm({
     });
   }
 
+  /** Cập nhật tên môn "khác" người dùng gõ. */
   function setOtherName(id: string, name: string) {
     setForm((prev) => ({ ...prev, subjectOthers: { ...prev.subjectOthers, [id]: name } }));
   }
 
+  /** Bật/tắt mục môn "khác": chưa có thì thêm một ô, đã có thì xoá hết các môn "khác". */
   function toggleOtherSection() {
     const otherSet = new Set(form.subjectIds.filter(isOtherSubject));
     if (otherSet.size === 0) {
@@ -344,6 +375,7 @@ export function ClassRequestForm({
     });
   }
 
+  /** Cập nhật học phí mong muốn của một môn (chỉ giữ chữ số). */
   function setSubjectFee(subjectId: string, value: string) {
     const digits = value.replace(/\D/g, '');
     setForm((prev) => ({
@@ -352,10 +384,15 @@ export function ClassRequestForm({
     }));
   }
 
+  /** Thêm một khung học trống cho môn. */
   function addSlot(subjectId: string) {
     setForm((prev) => ({ ...prev, slots: [...prev.slots, emptySlot(subjectId)] }));
   }
 
+  /**
+   * Bật/tắt một thứ trong tuần cho môn: bật thì tạo khung học với giờ của môn (hoặc giờ mặc định),
+   * tự dời sang giờ trống nếu trùng khung khác; không còn giờ trống thì không thêm.
+   */
   function toggleWeekday(subjectId: string, day: string) {
     setForm((prev) => {
       const has = prev.slots.some((s) => s.subjectId === subjectId && s.day === day);
@@ -369,6 +406,7 @@ export function ClassRequestForm({
       const shared = prev.slots.find((s) => s.subjectId === subjectId);
       let start = shared?.start || WEEKLY_DEFAULT_START;
       let end = shared?.end || WEEKLY_DEFAULT_END;
+      /** Khoảng giờ a–b có chồng lên khung đã bận nào trong ngày đó không. */
       const overlaps = (a: string, b: string) =>
         busy.some((r) => toMinutes(a) < endMinutes(r.end) && toMinutes(r.start) < endMinutes(b));
       if (overlaps(start, end)) {
@@ -390,6 +428,7 @@ export function ClassRequestForm({
     });
   }
 
+  /** Đổi giờ bắt đầu/kết thúc của một khung; giờ kết thúc không còn sau giờ bắt đầu thì xoá, và cập nhật lại buổi. */
   function setSlotTime(index: number, patch: { start?: string; end?: string }) {
     setForm((prev) => ({
       ...prev,
@@ -403,6 +442,7 @@ export function ClassRequestForm({
     }));
   }
 
+  /** Bật/tắt một tuần học trong chu kỳ lặp (luôn giữ ít nhất một tuần). */
   function toggleStudyWeek(week: number) {
     setForm((prev) => {
       const cur = studyWeeksOf(prev);
@@ -412,10 +452,12 @@ export function ClassRequestForm({
     });
   }
 
+  /** Xoá một khung học. */
   function removeSlot(index: number) {
     setForm((prev) => ({ ...prev, slots: prev.slots.filter((_, i) => i !== index) }));
   }
 
+  /** Cập nhật một phần thông tin của một khung học. */
   function updateSlot(index: number, patch: Partial<ScheduleSlot>) {
     setForm((prev) => ({
       ...prev,
@@ -423,6 +465,10 @@ export function ClassRequestForm({
     }));
   }
 
+  /**
+   * Chọn buổi cho khung học và điền giờ mặc định của buổi; nếu trùng khung khác hoặc (lịch theo ngày)
+   * giờ hôm nay đã qua thì chỉ giữ buổi, để trống giờ cho người dùng tự chọn.
+   */
   function setSlotSession(index: number, session: string) {
     const preset = SESSION_OPTIONS.find((s) => s.value === session);
     if (!preset) {
@@ -474,7 +520,9 @@ export function ClassRequestForm({
   const studyWeeks = studyWeeksOf(form);
   const restWeeks = restWeeksOf(form);
 
+  /** Tổng số giờ học trong một lần lặp của lịch (tính lại khi form đổi). */
   const hoursPerRepeat = useMemo(() => totalHoursPerRepeat(form), [form]);
+  /** Tổng học phí dự kiến của cả khoá (tính lại khi form đổi). */
   const total = useMemo(() => totalBudget(form), [form]);
 
   const isOffline = form.lessonMode !== 'ONLINE';

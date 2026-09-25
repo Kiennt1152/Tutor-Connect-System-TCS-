@@ -64,6 +64,10 @@ public class LessonReminderService {
         refreshLessonReminders();
     }
 
+    /**
+     * Làm mới nhắc nhở của hôm nay: gỡ nhắc không còn thuộc hôm nay, rồi gửi nhắc cho các buổi hôm nay
+     * chưa được nhắc (buổi đã điểm danh/vắng thì chỉ đánh dấu, không gửi).
+     */
     private void refreshLessonReminders() {
         LocalDate today = LocalDate.now();
         // 1) Gỡ nhắc nhở không còn thuộc hôm nay (ngày cũ hoặc buổi đã đổi sang ngày khác).
@@ -139,6 +143,7 @@ public class LessonReminderService {
         }
     }
 
+    /** Gửi nhắc cho một buổi hôm nay: gia sư nhận "buổi dạy", client tạo lớp nhận "buổi học". */
     private void remindOne(Lesson lesson) {
         TutoringClass cls = lesson.getTutoringClass();
         String classTitle = cls != null ? cls.getTitle() : "";
@@ -175,6 +180,7 @@ public class LessonReminderService {
         Map<String, Object> vars = Map.of(
                 "activity", activity,
                 "subjectName", subjectName,
+                "timePart", timePart,
                 "startTime", startTime,
                 "endTime", endTime,
                 "classTitle", classTitle);

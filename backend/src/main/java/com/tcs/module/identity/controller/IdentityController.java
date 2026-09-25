@@ -81,11 +81,13 @@ public class IdentityController {
         return Map.of("message", "Dang xuat thanh cong");
     }
 
+    /** POST /api/identity/google — đăng nhập bằng Google access token. */
     @PostMapping("/google")
     public GoogleLoginResponse loginWithGoogle(@Valid @RequestBody GoogleLoginRequest request) {
         return identityService.loginWithGoogle(request);
     }
 
+    /** POST /api/identity/google/complete — hoàn tất đăng ký tài khoản mới bằng Google. */
     @PostMapping("/google/complete")
     public GoogleLoginResponse completeGoogleSignup(@Valid @RequestBody GoogleCompleteRequest request) {
         return identityService.completeGoogleSignup(request);

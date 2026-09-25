@@ -34,6 +34,7 @@ const genderLabel = (gender: string) => {
   }
 };
 
+/** Thẻ gia sư trong danh sách: tên, xác minh, học phí, điểm, kinh nghiệm, giới tính, nút xem đánh giá/hồ sơ. */
 export function TutorListingCard({
   tutor,
   variant = 'grid',

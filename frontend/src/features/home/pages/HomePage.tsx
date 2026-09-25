@@ -139,6 +139,7 @@ function HeroStats({ data }: { data: HomeData | null }) {
   );
 }
 
+/** Khối "lớp đang mở" trên trang chủ. */
 export function ClassesSection({
   classes,
   status,

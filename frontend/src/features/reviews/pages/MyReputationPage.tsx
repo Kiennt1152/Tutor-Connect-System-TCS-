@@ -17,10 +17,12 @@ import { CriteriaBreakdown } from '../components/CriteriaBreakdown';
 import { ReportReviewModal } from '../components/ReportReviewModal';
 import { reviewApi } from '../api/reviewApi';
 import type { ReviewResponse, TutorReputation } from '../types/reviewTypes';
+import { ClassTitleWithDroppedSubjects } from '../../../shared/components/ClassTitleWithDroppedSubjects';
 import '../../home/pages/TutorPublicProfilePage.css';
 
 const STAR_ROWS = [5, 4, 3, 2, 1] as const;
 
+/** Lấy câu lỗi từ phản hồi API; không có thì dùng câu dự phòng. */
 function extractError(error: unknown, fallback: string): string {
   if (axios.isAxiosError(error) && typeof error.response?.data?.message === 'string') {
     return error.response.data.message;
@@ -28,15 +30,18 @@ function extractError(error: unknown, fallback: string): string {
   return fallback;
 }
 
+/** Định dạng ngày theo kiểu Việt Nam. */
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('vi-VN');
 }
 
+/** Trang "Nhận xét về tôi" của gia sư: tổng quan điểm và danh sách đánh giá có nút phản hồi/báo cáo. */
 export default function MyReputationPage() {
   const [data, setData] = useState<TutorReputation | null>(null);
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [error, setError] = useState('');
 
+  /** Tải danh tiếng của gia sư đang đăng nhập. */
   const load = useCallback(() => {
     setStatus('loading');
     reviewApi
@@ -88,6 +93,7 @@ export default function MyReputationPage() {
   );
 }
 
+/** Khối tổng quan: điểm TB, số lượt, phân bố sao và điểm theo tiêu chí. */
 function ReputationSummary({ data }: { readonly data: TutorReputation }) {
   const total = data.totalReviews;
   return (
@@ -135,6 +141,7 @@ function ReputationSummary({ data }: { readonly data: TutorReputation }) {
   );
 }
 
+/** Danh sách đánh giá gia sư nhận được; trống thì hiện câu báo. */
 function ReviewsList({
   reviews,
   onReplied,
@@ -158,6 +165,7 @@ function ReviewsList({
   );
 }
 
+/** Một đánh giá: người đánh giá, điểm, tiêu chí, nhận xét, phản hồi của gia sư (thêm/sửa) và nút báo cáo đánh giá. */
 function ReviewCard({
   review: r,
   onReplied,
@@ -173,12 +181,14 @@ function ReviewCard({
   const [reporting, setReporting] = useState(false);
   const [reported, setReported] = useState(false);
 
+  /** Mở ô soạn phản hồi (điền sẵn phản hồi cũ nếu có). */
   function startEdit() {
     setText(r.tutorReply ?? '');
     setError('');
     setEditing(true);
   }
 
+  /** Gửi phản hồi (không được trống); thành công thì đóng ô soạn và tải lại danh sách. */
   function submit() {
     const reply = text.trim();
     if (!reply) {
@@ -210,7 +220,10 @@ function ReviewCard({
         <span className="tp-review__overall">{r.rating.toFixed(1)}/5</span>
         {r.classTitle ? (
           <span className="tp-review__class">
-            {r.classTitle}
+            <ClassTitleWithDroppedSubjects
+              title={r.classTitle}
+              taughtSubjects={r.subjectNames ?? []}
+            />
             {r.subjectName ? ` · ${r.subjectName}` : ''}
           </span>
         ) : null}
