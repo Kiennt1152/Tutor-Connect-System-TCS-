@@ -487,10 +487,28 @@ export default function ContractDetailPage() {
   const escrowPending = visibleEscrowPayment?.paymentStatus === 'PENDING';
   const escrowRetryable =
     visibleEscrowPayment?.paymentStatus === 'FAILED' || visibleEscrowPayment?.paymentStatus === 'CANCELLED';
+  // Xác định đúng một ô ký của người đang xem. Không dùng đồng thời hai cờ "isCurrentUser"
+  // nếu dữ liệu cũ đánh dấu nhầm cả hai bên.
+  const currentUserId = user?.userId ?? null;
+  const currentSignatureId =
+    signatures?.signatures.find(
+      (signature) => currentUserId != null && signature.signerId === currentUserId,
+    )?.signatureId
+    ?? signatures?.signatures.find(
+      (signature) =>
+        signature.signatureStatus !== 'SIGNED'
+        && (
+          (signature.partyRole === 'CLIENT' && contract.client?.userId === currentUserId)
+          || (signature.partyRole === 'CENTER' && contract.center?.userId === currentUserId)
+          || (signature.partyRole === 'TUTOR' && contract.tutor?.userId === currentUserId)
+        ),
+    )?.signatureId
+    ?? null;
+  const isCurrentSignature = (signatureId: number) => signatureId === currentSignatureId;
   const myPendingSlot =
-    signatures?.signatures.some((s) => s.isCurrentUser && s.signatureStatus !== 'SIGNED') ?? false;
+    signatures?.signatures.some((s) => isCurrentSignature(s.signatureId) && s.signatureStatus !== 'SIGNED') ?? false;
   const mySignedSlot =
-    signatures?.signatures.some((s) => s.isCurrentUser && s.signatureStatus === 'SIGNED') ?? false;
+    signatures?.signatures.some((s) => isCurrentSignature(s.signatureId) && s.signatureStatus === 'SIGNED') ?? false;
   const allSigned = signatures?.fullySigned ?? false;
   // "Đã ký" = đủ chữ ký hoặc hợp đồng đã sang trạng thái sau khi ký -> cho phép tải PDF.
   const isSigned =
@@ -834,18 +852,19 @@ export default function ContractDetailPage() {
                 <div className="contract-signature-list">
                   {signatures.signatures.map((signature) => {
                     const isSigned = signature.signatureStatus === 'SIGNED';
+                    const isMine = isCurrentSignature(signature.signatureId);
                     return (
                       <div
                         key={signature.signatureId}
                         className={`contract-signature-row${
-                          signature.isCurrentUser ? ' contract-signature-row--me' : ''
+                          isMine ? ' contract-signature-row--me' : ''
                         }${isSigned ? '' : ' contract-signature-row--pending'}`}
                       >
                         <span className="contract-signature-check">{isSigned ? '✓' : '—'}</span>
                         <div>
                           <strong>
                             {signature.signerName ?? signature.partyLabel}
-                            {signature.isCurrentUser ? <em>Bạn</em> : null}
+                            {isMine ? <em>Bạn</em> : null}
                           </strong>
                           <small>
                             {signature.partyLabel} ·{' '}

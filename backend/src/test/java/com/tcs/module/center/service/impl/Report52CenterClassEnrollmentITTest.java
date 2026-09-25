@@ -101,6 +101,7 @@ import com.tcs.module.marketplace.repository.LessonRescheduleRequestRepository;
 import com.tcs.module.marketplace.repository.ScheduleSlotRepository;
 import com.tcs.module.marketplace.repository.TutorApplicationRepository;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
+import com.tcs.module.marketplace.service.ClassTitleService;
 import com.tcs.module.marketplace.service.RescheduleService;
 import com.tcs.module.marketplace.service.SubstitutionService;
 import com.tcs.module.marketplace.service.impl.LessonReminderService;
@@ -216,6 +217,7 @@ public class Report52CenterClassEnrollmentITTest {
     @Mock private ContractRepository contractRepository;
     @Mock private ContractSignatureRepository contractSignatureRepository;
     @Mock private CccdService cccdService;
+    @Mock private ClassTitleService classTitleService;
     @Mock private UserRepository userRepository;
     @Mock private NotificationDispatchService notificationDispatchService;
     @Mock private NotificationRepository notificationRepository;
@@ -290,7 +292,8 @@ public class Report52CenterClassEnrollmentITTest {
                 reputationHistoryRepository,
                 lessonRepository,
                 lessonAttendanceRepository,
-                cccdService
+                cccdService,
+                classTitleService
         );
 
         activeOtp = new EmailOtp();

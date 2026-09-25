@@ -332,6 +332,11 @@ public class ContractServiceImpl implements ContractService {
 
         Long viewerId = authHelper.currentUserId();
         PartyRole viewerRole = partyRoleOf(contract, viewerId);
+        boolean viewerHasSigned = signatures.stream()
+                .anyMatch(signature -> signature.getSigner() != null
+                        && viewerId != null
+                        && signature.getSigner().getUserId().equals(viewerId)
+                        && signature.getSignatureStatus() == ContractSignatureStatus.SIGNED);
 
         return ContractSignatureListResponse.builder()
                 .contractId(contractId)
@@ -342,7 +347,7 @@ public class ContractServiceImpl implements ContractService {
                 .requiredSignatures(required)
                 .totalRequired(required)
                 .signatures(signatures.stream()
-                        .map(s -> toSignatureResponse(s, viewerId, viewerRole))
+                        .map(s -> toSignatureResponse(s, viewerId, viewerRole, viewerHasSigned))
                         .toList())
                 .build();
     }
@@ -2082,12 +2087,13 @@ public class ContractServiceImpl implements ContractService {
     }
 
     private ContractSignatureResponse toSignatureResponse(
-            ContractSignature signature, Long viewerId, PartyRole viewerRole) {
+            ContractSignature signature, Long viewerId, PartyRole viewerRole, boolean viewerHasSigned) {
         // "Của tôi" = ô ký do chính người xem đã ký (khớp signer) HOẶC ô còn chờ ký thuộc đúng
-        // vai trò của người xem (signer chưa có nhưng party trùng vai trò).
+        // vai trò của người xem (signer chưa có nhưng party trùng vai trò). Khi người xem đã
+        // ký một ô, không đánh dấu thêm ô chờ ký khác, kể cả dữ liệu cũ có role bị trùng.
         boolean mine = (signature.getSigner() != null && viewerId != null
                         && signature.getSigner().getUserId().equals(viewerId))
-                || (signature.getSigner() == null && viewerRole != null
+                || (!viewerHasSigned && signature.getSigner() == null && viewerRole != null
                         && signature.getPartyRole() == viewerRole);
         ContractSignatureResponse.ContractSignatureResponseBuilder builder = ContractSignatureResponse.builder()
                 .signatureId(signature.getSignatureId())
