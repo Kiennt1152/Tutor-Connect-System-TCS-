@@ -62,10 +62,10 @@ export default function PlatformDashboardPage() {
     try {
       const res = await platformApi.reindexAiKnowledge();
       const s = res.data;
-      setReindexMessage(`Đã đánh chỉ mục thành công: ${s.indexed} mới, ${s.updated} cập nhật, ${s.unchanged} không đổi.`);
+      setReindexMessage(`Đã đồng bộ thành công: ${s.indexed} mới, ${s.updated} cập nhật, ${s.unchanged} không đổi.`);
       fetchAiStats();
     } catch (err: any) {
-      setReindexMessage(err?.response?.data?.message || 'Không thể reindex AI. Vui lòng kiểm tra kết nối backend.');
+      setReindexMessage(err?.response?.data?.message || 'Không thể đồng bộ dữ liệu AI. Vui lòng kiểm tra kết nối backend.');
     } finally {
       setReindexing(false);
     }
@@ -625,13 +625,13 @@ export default function PlatformDashboardPage() {
             );
           })()}
 
-          {/* AI Knowledge Base Diagnostics & Reindex Control */}
+          {/* Quản lý Cơ sở Tri thức & Đánh chỉ mục AI */}
           <section className="adm-dashboard-section" style={{ marginTop: '2rem', marginBottom: '2rem' }}>
             <div className="adm-dashboard-section__head">
               <div>
-                <h2 className="adm-dashboard-section__title">AI Knowledge Base & RAG Index Diagnostics</h2>
+                <h2 className="adm-dashboard-section__title">Cơ sở Tri thức & Đánh chỉ mục AI</h2>
                 <p className="adm-dashboard-section__desc">
-                  Trạng thái nguồn tri thức RAG và Tìm kiếm thông minh cho Trợ lý AI hệ thống TCS.
+                  Trạng thái nguồn dữ liệu tri thức và tìm kiếm thông minh cho Trợ lý AI hệ thống TCS.
                 </p>
               </div>
               <button
@@ -640,13 +640,13 @@ export default function PlatformDashboardPage() {
                 disabled={reindexing}
                 onClick={handleReindex}
               >
-                {reindexing ? 'Đang reindex...' : 'Đánh chỉ mục lại (Reindex All)'}
+                {reindexing ? 'Đang đồng bộ...' : 'Đồng bộ lại toàn bộ (Reindex)'}
               </button>
             </div>
 
             {(!aiStats || aiStats.totalChunks === 0) && (
               <div className="adm-alert-box">
-                [Cảnh báo] Cơ sở dữ liệu tri thức AI hiện đang trống (0 chunks). Hãy bấm <strong>"Đánh chỉ mục lại (Reindex All)"</strong> ở trên để nạp tri thức FAQ, Gia sư, Lớp học và Chính sách vào bộ nhớ RAG của AI.
+                [Cảnh báo] Cơ sở dữ liệu tri thức AI hiện đang trống. Hãy bấm <strong>"Đồng bộ lại toàn bộ (Reindex)"</strong> ở trên để nạp dữ liệu FAQ, Gia sư và Lớp học vào bộ nhớ của AI.
               </div>
             )}
 
@@ -656,34 +656,24 @@ export default function PlatformDashboardPage() {
               </div>
             )}
 
-            <div className="adm-kpi-mono-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
-              <div className="adm-kpi-mono-card">
-                <span className="adm-kpi-mono-card__head">Tổng số Chunks</span>
-                <p className="adm-kpi-mono-card__value">{formatCount(aiStats?.totalChunks || 0)}</p>
-              </div>
+            <div className="adm-kpi-mono-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
               <div className="adm-kpi-mono-card">
                 <span className="adm-kpi-mono-card__head">FAQ & Hướng dẫn</span>
                 <p className="adm-kpi-mono-card__value">{formatCount(aiStats?.bySourceType?.FAQ || 0)}</p>
               </div>
               <div className="adm-kpi-mono-card">
-                <span className="adm-kpi-mono-card__head">Gia sư (Active)</span>
+                <span className="adm-kpi-mono-card__head">Gia sư đang hoạt động</span>
                 <p className="adm-kpi-mono-card__value">{formatCount(aiStats?.bySourceType?.TUTOR || 0)}</p>
               </div>
               <div className="adm-kpi-mono-card">
-                <span className="adm-kpi-mono-card__head">Lớp học (Open)</span>
+                <span className="adm-kpi-mono-card__head">Lớp học đang mở</span>
                 <p className="adm-kpi-mono-card__value">{formatCount(aiStats?.bySourceType?.CLASS || 0)}</p>
-              </div>
-              <div className="adm-kpi-mono-card">
-                <span className="adm-kpi-mono-card__head">Chính sách & Docs</span>
-                <p className="adm-kpi-mono-card__value">
-                  {formatCount((aiStats?.bySourceType?.POLICY || 0) + (aiStats?.bySourceType?.SYSTEM_DOC || 0))}
-                </p>
               </div>
             </div>
 
             {aiStats?.lastIndexedAt && (
               <p className="adm-subtext" style={{ marginTop: '0.75rem' }}>
-                Thời điểm đánh chỉ mục gần nhất: <strong>{new Date(aiStats.lastIndexedAt).toLocaleString('vi-VN')}</strong>
+                Thời điểm đồng bộ gần nhất: <strong>{new Date(aiStats.lastIndexedAt).toLocaleString('vi-VN')}</strong>
               </p>
             )}
           </section>
