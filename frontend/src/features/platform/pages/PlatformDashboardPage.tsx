@@ -11,7 +11,7 @@
  * @author Nguyễn Trung Kiên (Kiennt1152)
  */
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '../components/AdminLayout';
 import { usePlatformDashboard } from '../hooks/usePlatformDashboard';
@@ -19,6 +19,8 @@ import { useAuth } from '../../../shared/auth/AuthProvider';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { AdminIcon } from '../components/AdminIcons';
 import { AdminTimeFilter, type TimeFilterValue } from '../components/AdminTimeFilter';
+import { platformApi } from '../api/platformApi';
+import type { AiKnowledgeStatsApiResponse } from '../types/platformTypes';
 import './PlatformDashboardPage.css';
 
 const formatCount = (value: any) =>
@@ -37,6 +39,37 @@ export default function PlatformDashboardPage() {
   const greetingName = user?.displayName?.trim() || user?.email?.split('@')[0] || 'Admin';
 
   const [lastUpdated, setLastUpdated] = useState<string>(() => new Date().toLocaleTimeString('vi-VN'));
+  const [aiStats, setAiStats] = useState<AiKnowledgeStatsApiResponse | null>(null);
+  const [reindexing, setReindexing] = useState(false);
+  const [reindexMessage, setReindexMessage] = useState<string | null>(null);
+
+  const fetchAiStats = useCallback(async () => {
+    try {
+      const res = await platformApi.getAiKnowledgeStats();
+      setAiStats(res.data);
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAiStats();
+  }, [fetchAiStats]);
+
+  const handleReindex = async () => {
+    setReindexing(true);
+    setReindexMessage(null);
+    try {
+      const res = await platformApi.reindexAiKnowledge();
+      const s = res.data;
+      setReindexMessage(`Đã đánh chỉ mục thành công: ${s.indexed} mới, ${s.updated} cập nhật, ${s.unchanged} không đổi.`);
+      fetchAiStats();
+    } catch (err: any) {
+      setReindexMessage(err?.response?.data?.message || 'Không thể reindex AI. Vui lòng kiểm tra kết nối backend.');
+    } finally {
+      setReindexing(false);
+    }
+  };
 
   /**
    * [UC-56] Áp dụng bộ lọc mốc thời gian và độ phân giải đồ thị (Ngày, Tuần, Tháng) trên Dashboard.
@@ -591,6 +624,69 @@ export default function PlatformDashboardPage() {
               </section>
             );
           })()}
+
+          {/* AI Knowledge Base Diagnostics & Reindex Control */}
+          <section className="adm-dashboard-section" style={{ marginTop: '2rem', marginBottom: '2rem' }}>
+            <div className="adm-dashboard-section__head">
+              <div>
+                <h2 className="adm-dashboard-section__title">AI Knowledge Base & RAG Index Diagnostics</h2>
+                <p className="adm-dashboard-section__desc">
+                  Trạng thái nguồn tri thức RAG và Tìm kiếm thông minh cho Trợ lý AI hệ thống TCS.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="adm-btn-solid"
+                disabled={reindexing}
+                onClick={handleReindex}
+              >
+                {reindexing ? 'Đang reindex...' : 'Đánh chỉ mục lại (Reindex All)'}
+              </button>
+            </div>
+
+            {(!aiStats || aiStats.totalChunks === 0) && (
+              <div className="adm-alert-box">
+                [Cảnh báo] Cơ sở dữ liệu tri thức AI hiện đang trống (0 chunks). Hãy bấm <strong>"Đánh chỉ mục lại (Reindex All)"</strong> ở trên để nạp tri thức FAQ, Gia sư, Lớp học và Chính sách vào bộ nhớ RAG của AI.
+              </div>
+            )}
+
+            {reindexMessage && (
+              <div className="adm-success-box">
+                {reindexMessage}
+              </div>
+            )}
+
+            <div className="adm-kpi-mono-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
+              <div className="adm-kpi-mono-card">
+                <span className="adm-kpi-mono-card__head">Tổng số Chunks</span>
+                <p className="adm-kpi-mono-card__value">{formatCount(aiStats?.totalChunks || 0)}</p>
+              </div>
+              <div className="adm-kpi-mono-card">
+                <span className="adm-kpi-mono-card__head">FAQ & Hướng dẫn</span>
+                <p className="adm-kpi-mono-card__value">{formatCount(aiStats?.bySourceType?.FAQ || 0)}</p>
+              </div>
+              <div className="adm-kpi-mono-card">
+                <span className="adm-kpi-mono-card__head">Gia sư (Active)</span>
+                <p className="adm-kpi-mono-card__value">{formatCount(aiStats?.bySourceType?.TUTOR || 0)}</p>
+              </div>
+              <div className="adm-kpi-mono-card">
+                <span className="adm-kpi-mono-card__head">Lớp học (Open)</span>
+                <p className="adm-kpi-mono-card__value">{formatCount(aiStats?.bySourceType?.CLASS || 0)}</p>
+              </div>
+              <div className="adm-kpi-mono-card">
+                <span className="adm-kpi-mono-card__head">Chính sách & Docs</span>
+                <p className="adm-kpi-mono-card__value">
+                  {formatCount((aiStats?.bySourceType?.POLICY || 0) + (aiStats?.bySourceType?.SYSTEM_DOC || 0))}
+                </p>
+              </div>
+            </div>
+
+            {aiStats?.lastIndexedAt && (
+              <p className="adm-subtext" style={{ marginTop: '0.75rem' }}>
+                Thời điểm đánh chỉ mục gần nhất: <strong>{new Date(aiStats.lastIndexedAt).toLocaleString('vi-VN')}</strong>
+              </p>
+            )}
+          </section>
 
         </>
       )}
