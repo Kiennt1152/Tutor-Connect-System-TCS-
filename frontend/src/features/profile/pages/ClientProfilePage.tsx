@@ -184,8 +184,11 @@ export default function ClientProfilePage({ ctx }: { ctx: UseProfileResult }) {
           Quản lý thông tin tài khoản cá nhân, định danh CCCD và liên kết hồ sơ học viên / con cái.
         </p>
         <div className="profile-quick-links">
+          <Link to={APP_ROUTES.teaching} className="profile-quick-chip">
+            Lịch học cá nhân
+          </Link>
           <Link to={APP_ROUTES.clientSchedule} className="profile-quick-chip">
-            Lịch học của tôi
+            Lịch lớp trung tâm
           </Link>
           <Link to={APP_ROUTES.marketplace} className="profile-quick-chip">
             Yêu cầu gia sư đã đăng

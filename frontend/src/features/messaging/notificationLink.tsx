@@ -61,7 +61,7 @@ export function notificationLink(
   // dưới); ở đây còn lại đơn bị từ chối và các thông báo cũ đã lỡ gắn vào đơn.
   if (n.referenceType === 'RECRUITMENT_APPLICATION') {
     if (role === 'TUTOR') return `${APP_ROUTES.recruitment}?tab=mine`;
-    if (role === 'TUTOR_CENTER') return '/center/recruitment';
+    if (role === 'TUTOR_CENTER') return APP_ROUTES.centerRecruitment;
     return null;
   }
 
