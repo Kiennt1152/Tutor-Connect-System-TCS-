@@ -11,7 +11,7 @@ interface CenterSideItem {
 const ITEMS: readonly CenterSideItem[] = [
   { to: '/center', label: 'Lớp học Trung Tâm', end: true },
   { to: '/center/requests', label: 'Yêu cầu mở lớp' },
-  { to: '/center/recruitment', label: 'Tin tuyển gia sư' },
+  { to: APP_ROUTES.centerRecruitment, label: 'Tin tuyển gia sư' },
   { to: '/center/tutors', label: 'Gia sư của trung tâm' },
   { to: '/center/stats', label: 'Thống kê' },
   { to: '/center/finance', label: 'Tài chính' },

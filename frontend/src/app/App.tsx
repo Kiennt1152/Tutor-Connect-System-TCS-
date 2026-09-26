@@ -335,7 +335,7 @@ export default function App() {
             }
           />
           <Route
-            path="/center/recruitment"
+            path={APP_ROUTES.centerRecruitment}
             element={
               <ProtectedRoute roles={['TUTOR_CENTER']}>
                 <CenterRecruitmentPage />

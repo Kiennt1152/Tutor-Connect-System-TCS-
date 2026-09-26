@@ -32,6 +32,7 @@ export const APP_ROUTES = {
   center: '/center',
   centerReports: '/center/reports',
   centerSchedule: '/center/schedule',
+  centerRecruitment: '/center/recruitment',
   /** Trang công khai giới thiệu trung tâm + tin tuyển gia sư (khác /center là trang quản lý). */
   centers: '/centers',
   /** Hồ sơ công khai một trung tâm — id truyền qua router state như trang hồ sơ gia sư. */

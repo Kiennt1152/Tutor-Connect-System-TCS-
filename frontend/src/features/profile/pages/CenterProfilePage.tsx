@@ -166,7 +166,7 @@ export default function CenterProfilePage({ ctx }: { ctx: UseProfileResult }) {
           <Link to={APP_ROUTES.centerSchedule} className="profile-quick-chip">
             Lịch dạy trung tâm
           </Link>
-          <Link to={APP_ROUTES.recruitment} className="profile-quick-chip">
+          <Link to={APP_ROUTES.centerRecruitment} className="profile-quick-chip">
             Đăng tuyển gia sư
           </Link>
           <Link to={APP_ROUTES.verification} className="profile-quick-chip">
